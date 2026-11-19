@@ -1,0 +1,44 @@
+{
+ "header": "Games",
+ "end_of_menu": "End of menu",
+ "select": "Select",
+ "back": "Return",
+ "sound": "Sound",
+ "items": [
+  {
+   "title": "Stack Attack",
+   "title2": "Stack Attack",
+   "title_id": 1232,
+   "entry": 13302008,
+   "port": "stack.html"
+  },
+  {
+   "title": "Balloon Shooter",
+   "title2": "Balloon\nShooter",
+   "title_id": 1230,
+   "entry": 13274680,
+   "port": "balloon.html"
+  },
+  {
+   "title": "Move the box",
+   "title2": "Move the box",
+   "title_id": 840,
+   "entry": 13324404,
+   "port": "index.html"
+  },
+  {
+   "title": "Wacko",
+   "title2": "Wacko",
+   "title_id": 979,
+   "entry": 13974678,
+   "port": "wacko.html"
+  },
+  {
+   "title": "Setup",
+   "title2": "Setup",
+   "title_id": 151,
+   "entry": 13273840,
+   "port": null
+  }
+ ]
+}

@@ -11,10 +11,13 @@ The four built-in games of the Siemens A55 phone, reverse-engineered from its fi
 A **Games menu** works like the phone's own: one page per game with its original start picture,
 plus a Setup page.
 
-> Personal preservation project. **No firmware and no original assets are in this repository.**
-> The pages contain only the rebuilt game logic. Levels, graphics and texts are extracted from
-> your own firmware dump by the scripts in `scripts/extract/` into `out/` (gitignored). Without
-> that data, Move the box and Wacko fall back to placeholder art; the other two need the data.
+**Play it in the browser: <https://ilariodeangelis77.github.io/MoveTheBoxDecomp/>**
+
+> Personal preservation project. **The firmware itself is not in this repository.** The pages
+> contain the rebuilt game logic. The game data they load (levels, sprites, start pictures and
+> texts, as JSON in `out/<game>/`) was extracted from a firmware dump by the scripts in
+> `scripts/extract/`. It is included so the page is playable, and it can be regenerated from your
+> own dump. Without it, Move the box and Wacko fall back to placeholder art; the other two need it.
 
 ## Run it
 

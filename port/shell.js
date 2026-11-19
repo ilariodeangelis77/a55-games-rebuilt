@@ -24,9 +24,8 @@
         <span class="brand-text"><b>A55 Games</b><span>rebuilt from the phone firmware</span></span></a>
       <nav class="nav" aria-label="Pages">${PAGES.map(p =>
         `<a href="${p.file}"${p.file === here ? ' aria-current="page"' : ''}>${esc(name(p.file))}</a>`).join('')}</nav></div>`;
-    if (foot) foot.innerHTML = `<div>Personal preservation project. No firmware or original assets are included:
-      graphics, levels and texts are loaded from <code>out/</code>, which the scripts in <code>scripts/extract/</code>
-      build from your own dump. Reverse-engineering notes: <code>NOTES.md</code>, pseudo-C in <code>docs/</code>.</div>`;
+    if (foot) foot.innerHTML = `<div>Personal preservation project. No firmware is included: the graphics, levels and texts are
+      loaded from <code>out/</code>, extracted from a firmware dump by the scripts in <code>scripts/extract/</code>. Reverse-engineering notes: <code>NOTES.md</code>, pseudo-C in <code>docs/</code>.</div>`;
     const me = PAGES.find(p => p.file === here);
     if (me) {
       const n = here === 'games.html' ? `${name(here)} menu` : name(here);

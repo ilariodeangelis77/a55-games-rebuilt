@@ -1,0 +1,16 @@
+{
+ "title": "Stack Attack",
+ "start": "Start",
+ "options": "Options",
+ "menu": [
+  "Start",
+  "Level",
+  "Highscore",
+  "Instructions"
+ ],
+ "points": "%d points",
+ "instructions": [
+  "Fill as many lines\nat the bottom.\nUse 4,6 to walk\nleft/right and to\npush crates. To\njump use 1,2 or\n3. Jump against \na falling crate \nwill break it.\nUse 0 to display\nscore, stop and\nstart again."
+ ],
+ "back": "Return"
+}

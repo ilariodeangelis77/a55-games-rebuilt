@@ -1,0 +1,23 @@
+{
+ "title": "Wacko",
+ "start": "Start",
+ "options": "Options",
+ "menu": [
+  "Start",
+  "Level",
+  "Highscore",
+  "Instructions"
+ ],
+ "levels": [
+  "Level 1",
+  "Level 2",
+  "Level 3"
+ ],
+ "best_score": "Best score:\n%d points\n%d%",
+ "result": "Points: %d\nRate: %d\nWackos:%d\nRabbits:%d",
+ "back": "Return",
+ "instructions": [
+  "Use keys 1 to 9 to\nhit the wackos.\nHitting rabbits will\nlower your score.",
+  "You may press\n'*' long to \nswitch on/off \nthe key sound."
+ ]
+}

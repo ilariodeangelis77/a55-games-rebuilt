@@ -1,0 +1,16 @@
+{
+ "title": "Balloon Shooter",
+ "start": "Start",
+ "options": "Options",
+ "menu": [
+  "Start",
+  "Level",
+  "Highscore",
+  "Instructions"
+ ],
+ "points": "%d points",
+ "instructions": [
+  "Shoot all balloons\nbefore they \nreach the top.\nUse 1-9 to aim\nand 5 to shoot. \nDynamite bursts\nall balloons.\nGreeting cards\ngive extra bonus."
+ ],
+ "back": "Return"
+}

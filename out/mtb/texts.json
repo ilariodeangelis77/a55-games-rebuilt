@@ -1,0 +1,23 @@
+{
+ "title": "Move the box",
+ "start": "Start",
+ "options": "Options",
+ "menu": [
+  "Start",
+  "Level",
+  "Highscore",
+  "Instructions",
+  "Rotate map"
+ ],
+ "instructions": [
+  "Use as few steps\nas possible to \nmove all boxes \nto the target.",
+  "The max. score is\n200 for one level.\nA step will lower\nyour score by 1.",
+  "To reset the game\nuse right-top key.\nTo undo one step,\nuse left-top key.",
+  "Enable the option\n\"Rotate map\" will\nrotate screen\ndiagonally every\n50 steps."
+ ],
+ "best_score": "Best score: %d",
+ "won": "You have won!\nYour score: %d",
+ "lost": "You have lost!\nYour score: %d",
+ "ok": "OK",
+ "back": "Return"
+}

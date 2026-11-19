@@ -14,8 +14,17 @@ tools/
 *.lock~
 ghidra_projects/
 
-# Bulk/intermediate output; curated results are added explicitly with git add -f
-out/
+# Bulk/intermediate output stays local (logs, Ghidra projects, decrypted payloads, scratch C).
+# Only the extracted game data the web pages load is published: out/<game>/*.json (+ the XSB levels).
+out/*
+!out/games/
+!out/mtb/
+!out/wacko/
+!out/balloon/
+!out/stack/
+out/*/*
+!out/*/*.json
+!out/mtb/levels.xsb
 
 __pycache__/
 *.pyc
