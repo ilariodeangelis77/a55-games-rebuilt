@@ -1,0 +1,21 @@
+# Never commit the firmware dump (contains IMEI/EEPROM data) or anything derived 1:1 from it
+firmware/
+*.bin
+*.fls
+*.ff
+
+# Local toolchain (Ghidra install, downloads)
+tools/
+
+# Ghidra project databases
+*.gpr
+*.rep/
+*.lock
+*.lock~
+ghidra_projects/
+
+# Bulk/intermediate output; curated results are added explicitly with git add -f
+out/
+
+__pycache__/
+*.pyc
