@@ -523,3 +523,13 @@ open `http://localhost:8765/port/…`.
     `games.html` itself: "SETUP" lettering, a speaker and two gears.
   - **Approximation:** Setup's real contents weren't traced. The port's Setup has a single
     Sound on/off item that switches the sound setting of all four ports at once.
+
+# LCD depth effect (port extra, not in the original games)
+- `port/lcd-depth.js`, included by all five pages, simulates the faint shadow a passive mono LCD
+  shows under each dark pixel.
+  - Every frame it copies the dark pixels of `canvas#lcd` into a transparent canvas laid over it,
+    shifted 0.6 LCD px down and right, with 24 % ink alpha and a slight blur.
+  - The HTML text screens and soft-key labels get the same look through `text-shadow`.
+  - The games' own rendering code is untouched.
+- **Toggle:** the "LCD depth" checkbox under each phone, or Games → Setup → "LCD depth". The
+  setting is shared by all pages (localStorage `lcdport.depth`) and is on by default.

@@ -163,12 +163,12 @@ function render() {
     setSoft(MENU.select, '');
     document.getElementById('status').textContent = `${MENU.header} · ${S.sel + 1}/${MENU.items.length} · ${it.title}`;
   } else {                                                  // Setup list (contents approximated, see NOTES.md)
-    const rows = [`${MENU.sound}: ${soundOn() ? 'on' : 'off'}`];
+    const rows = [`${MENU.sound}: ${soundOn() ? 'on' : 'off'}`, `LCD depth: ${window.LcdDepth?.get() ? 'on' : 'off'}`];
     overlay.innerHTML = `<div class="hdr">${esc(it.title)}</div><ul class="menu body">` +
       rows.map((t, i) => `<li data-i="${i}" class="${i === S.setupSel ? 'sel' : ''}">${esc(t)}</li>`).join('') + '</ul>';
     overlay.classList.add('on'); setSoft(MENU.select, MENU.back);
     overlay.querySelectorAll('li[data-i]').forEach(li => li.addEventListener('click', () => { S.setupSel = +li.dataset.i; press('OK'); }));
-    document.getElementById('status').textContent = `${it.title} · sound ${soundOn() ? 'on' : 'off'} (all four games)`;
+    document.getElementById('status').textContent = `${it.title} · applies to all four games`;
   }
 }
 function open() {
@@ -186,12 +186,17 @@ function press(k) {
     ls.set('gamesmenu.sel', S.sel);
     render(); return;
   }
-  if (k === 'OK' || k === 'LSK' || k === '5') { const v = !soundOn(); SOUND_KEYS.forEach(key => ls.set(key, v)); }
+  if (k === '2' || k === '8') S.setupSel = (S.setupSel + 1) % 2;
+  else if (k === 'OK' || k === 'LSK' || k === '5') {
+    if (S.setupSel === 0) { const v = !soundOn(); SOUND_KEYS.forEach(key => ls.set(key, v)); }
+    else window.LcdDepth?.toggle();
+  }
   else if (k === 'RSK' || k === 'RED') S.screen = 'menu';
   render();
 }
 document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => press(b.dataset.k)));
 cv.addEventListener('click', () => { if (S.screen === 'menu') open(); });
+addEventListener('lcddepthchange', () => { if (S.screen === 'setup') render(); });   // checkbox under the phone
 const KEYMAP = {ArrowUp: '2', ArrowDown: '8', ArrowLeft: '4', ArrowRight: '6', Enter: 'OK', NumpadEnter: 'OK',
                 Escape: 'RED', F1: 'LSK', F2: 'RSK'};
 addEventListener('keydown', e => {
@@ -218,5 +223,6 @@ addEventListener('keydown', e => {
   render();
 })();
 </script>
+<script src="lcd-depth.js"></script>
 </body>
 </html>
