@@ -511,7 +511,9 @@ open `http://localhost:8765/` (redirects to the Games menu).
 
 **Page shell (port addition):** all five pages share `port/shell.css` and `port/shell.js`.
 - **Header:** navigation in the phone's menu order, with names taken from `out/games/menu.json`.
-- **Phone:** the same phone on every page.
+- **Phone:** the same phone on every page, always horizontally centred on the page. On wide
+  screens the panels sit on both sides of it; on narrower ones everything stacks under it.
+- **Favicon:** `port/favicon.svg` (my own art): a pixel crate on a green LCD.
 - **Side panel:** Controls, Settings (LCD depth) and Data cards.
 - **Footer:** says that no firmware or original assets are included.
 - **End key:** End always leads back to the Games menu: game → start screen → Games menu. On

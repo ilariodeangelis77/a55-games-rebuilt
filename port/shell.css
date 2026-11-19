@@ -27,7 +27,7 @@ a { color: inherit; }
 
 /* ---- site header ------------------------------------------------------------------------- */
 .site { border-bottom: 1px solid var(--line); background: var(--surface); }
-.site-in { max-width: 1040px; margin: 0 auto; padding: 10px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+.site-in { max-width: 1320px; margin: 0 auto; padding: 10px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
 .brand-mark { width: 34px; height: 24px; border-radius: 4px; background: var(--lcd); box-shadow: inset 0 0 0 2px var(--lcd-edge), 0 0 0 2px var(--bezel);
               display: grid; place-items: center; color: var(--lcd-ink); font: 700 10px/1 var(--mono); letter-spacing: .5px; }
@@ -40,11 +40,18 @@ a { color: inherit; }
 .nav a[aria-current="page"] { background: var(--lcd-ink); color: var(--lcd); }
 
 /* ---- layout ------------------------------------------------------------------------------ */
-.layout { flex: 1; width: 100%; max-width: 1040px; margin: 0 auto; padding: 24px 16px 32px;
-          display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: 28px; align-items: start; }
-@media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); justify-items: center; padding-top: 16px; } .panel { max-width: 560px; } }
-.device { width: 100%; max-width: 460px; display: flex; flex-direction: column; align-items: stretch; }
+/* phone in the centre column, panels on both sides; one centred column on narrower screens */
+.layout { flex: 1; width: 100%; max-width: 1320px; margin: 0 auto; padding: 24px 16px 32px;
+          display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px) minmax(0, 1fr);
+          grid-template-areas: "left device right"; gap: 28px; align-items: start; }
+.device { grid-area: device; justify-self: center; width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: stretch; }
 .panel { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.panel-l { grid-area: left; }
+.panel-r { grid-area: right; }
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "device" "left" "right"; justify-items: center; gap: 18px; padding-top: 16px; }
+  .panel { max-width: 560px; }
+}
 
 /* ---- the phone --------------------------------------------------------------------------- */
 .phone { position: relative; background: linear-gradient(170deg, var(--body-hi), var(--body) 60%); border-radius: 30px 30px 36px 36px;
@@ -101,4 +108,4 @@ canvas { display: block; width: 100%; image-rendering: pixelated; image-renderin
 
 /* ---- footer ------------------------------------------------------------------------------ */
 .site-foot { border-top: 1px solid var(--line); }
-.site-foot div { max-width: 1040px; margin: 0 auto; padding: 14px 16px 20px; font-size: 12px; color: var(--muted); }
+.site-foot div { max-width: 1320px; margin: 0 auto; padding: 14px 16px 20px; font-size: 12px; color: var(--muted); }

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Balloons · A55 Games</title>
 <link rel="stylesheet" href="shell.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
   .overlay.box { background: transparent; }
   .scorebox { background: var(--lcd); border: 2px solid var(--lcd-ink); box-shadow: 3px 3px 0 var(--lcd-ink); padding: 2px 10px; }
@@ -39,7 +40,7 @@
     </div>
     <div class="status" id="status" aria-live="polite"></div>
   </section>
-  <aside class="panel">
+  <aside class="panel panel-l">
     <h1 id="title">Balloons</h1>
     <p class="lede">Aim the crosshair and shoot the balloons. Levels, objects, graphics and texts are extracted from your dump.</p>
     <section class="card">
@@ -55,6 +56,8 @@
           <dt><kbd>Esc</kbd></dt><dd>End: leave the game, then back to the Games menu</dd>
       </dl>
     </section>
+  </aside>
+  <aside class="panel panel-r">
     <section class="card">
       <h2>Settings</h2>
       <div class="settings" id="settings"></div>
