@@ -8,7 +8,8 @@ import ghidra.program.model.symbol.SourceType;
 public class SeedVectors extends GhidraScript {
     @Override
     public void run() throws Exception {
-        Address base = currentProgram.getMinAddress();
+        Address base = toAddr(0x800000L); // flash base (confirmed by reset vector)
+        for (ghidra.program.model.mem.MemoryBlock b : currentProgram.getMemory().getBlocks()) println("BLOCK " + b.getName() + " " + b.getStart() + "-" + b.getEnd() + (b.isInitialized() ? " init" : " uninit"));
         int seeded = 0;
         for (int slot = 0; slot < 0x200; slot += 4) {
             Address a = base.add(slot);

@@ -107,6 +107,18 @@ and possibly English text.
 | 0xF80000–0xF9FFFF | erased | |
 | 0xFA0000 / 0xFC0000 / 0xFE0000 | EELITE / EEFULL / EEFULL | emulated EEPROM |
 
+### Startup code at 0x803142 (A55), from the Ghidra listing (`scripts/ghidra/Stats.java`)
+- `DISWDT`, then **DPP0 = 0x200** (`mov 0xFE00,#0x200`, page 0x200 × 16 KB = 0x800000 = flash
+  base), **DPP1 = DPP2 = DPP3 = 3** (system page 0xC000–0xFFFF). **confirmed** (listing)
+- CP (0xFE10) = 0xFC00, STKOV (0xFE14) = 0xFBC0, STKUN (0xFE16) = 0xFBFE, SP (0xFE12) = 0xFBFE.
+- Then SYSCON/BUSCON setup and a clock/PLL wait loop. The main firmware later sets its own DPPs,
+  to be found per code region.
+- Only 2 of the vector slots in flash hold `JMPS` (reset, and trap 8 → 0x800130). The rest
+  are presumably installed in RAM at runtime.
+- Ghidra auto-analysis from the vectors alone reaches only 39 functions / 3155 instructions
+  (bootcore + startup). The main firmware is entered indirectly. **Next:** seed analysis from
+  all `CALLS seg,addr` (`DA ss llhh`) targets with seg 0x80–0xDF found by a raw byte scan.
+
 ## Text encoding (partially understood)
 - None of the game names exist as ASCII or UTF-16 in either dump.
 - `scripts/extract/pattern_search.py` matches only which letters repeat in a word, so it works
