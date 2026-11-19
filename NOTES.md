@@ -296,8 +296,11 @@ Reached from Games → Move the box (`FUN_cb5074` → `FUN_cb503a`).
   callback `FUN_cb4fd0`.
   - Soft-key table at 0xCAFFAE: `{5, 5, "Start" 0x1B2}`, `{0x2D, 0x2D, "Options" 0x215}`.
   - Event 5 → `FUN_cb4ba0` (start the game); event 0x2D → `FUN_cb1888` (Options).
-  - Left = Start, right = Options is **likely** (table order).
-  - What the screen body shows is **unknown**. The port shows the title.
+  - Left = Start, right = Options: **confirmed** by a photo of a real A55 (Russian UI:
+    "Старт." / "Опции"), matching the table order.
+  - Body: **a full-width splash picture** (confirmed by the same photo): a round, angry
+    bomb-like creature on the left, a running man, brick walls and boxes. The bitmap's
+    location in flash is **not yet found**; the port currently shows the title instead.
 - **Options list:** descriptor around 0xCB1E7E, five 18-byte item records:
   1. **Start**: text 0x1B1, starts the game.
   2. **Level**: text 0x3DA. A 2-digit number field.
