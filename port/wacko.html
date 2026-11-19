@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Whack Port</title>
+<style>
+  :root {
+    --bg: #e9e7e1; --ink: #1d1d1b; --muted: #6b6a66; --body: #2b2d31; --body-hi: #3a3d42;
+    --lcd: #c9d3b4; --lcd-ink: #1f2a17; --key: #4a4e55; --key-ink: #f1f1ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #17181a; --ink: #e8e6e1; --muted: #9a988f; }
+  }
+  :root[data-theme="dark"] { --bg: #17181a; --ink: #e8e6e1; --muted: #9a988f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, sans-serif;
+         display: flex; flex-direction: column; align-items: center; padding: 16px; }
+  h1 { font-size: 15px; font-weight: 600; margin: 4px 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; margin: 0 0 12px; text-align: center; max-width: 520px; }
+  .phone { background: linear-gradient(var(--body-hi), var(--body)); border-radius: 28px; padding: 22px 18px 18px;
+           box-shadow: 0 10px 30px rgba(0,0,0,.25); width: min(100%, 560px); }
+  .lcd { background: var(--lcd); border-radius: 6px; padding: 10px; box-shadow: inset 0 0 0 3px #9aa684; }
+  .screen { position: relative; }
+  canvas { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; aspect-ratio: 101 / 64; }
+  .overlay { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: safe center; overflow-y: auto;
+             align-items: center; text-align: center; color: var(--lcd-ink); background: var(--lcd);
+             font: 600 clamp(12px, 3.4vw, 17px)/1.35 ui-monospace, Consolas, monospace; white-space: pre-line; padding: 6px; }
+  .overlay.on { display: flex; }
+  .hdr { position: sticky; top: 0; align-self: stretch; margin-bottom: auto; background: var(--lcd-ink); color: var(--lcd);
+         font-size: clamp(10px, 2.8vw, 14px); padding: 1px 6px; text-align: center; z-index: 1; }
+  .body { width: 100%; margin-bottom: auto; padding: 4px 0; }
+  .menu { list-style: none; padding: 0; margin: 0; width: 80%; }
+  .menu li { padding: 1px 6px; border-radius: 3px; }
+  .menu li.sel { background: var(--lcd-ink); color: var(--lcd); }
+  .soft { display: flex; justify-content: space-between; color: var(--lcd-ink); font: 600 12px ui-monospace, monospace; padding: 4px 2px 0; min-height: 1.4em; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .keys .row2 { grid-column: span 3; display: flex; justify-content: space-between; gap: 8px; }
+  button { background: var(--key); color: var(--key-ink); border: 0; border-radius: 12px; padding: 10px 0; font: 600 15px system-ui;
+           cursor: pointer; touch-action: manipulation; }
+  button:active { filter: brightness(1.3); }
+  button.softk { flex: 1; font-size: 12px; }
+  button.red { background: #8f3b36; } button.green { background: #3d7a46; }
+  .status, .data { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: center; }
+  kbd { font: 11px ui-monospace, monospace; background: rgba(127,127,127,.2); padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>Whack Port</h1>
+<p class="sub">An engine rebuilt from the decompiled phone firmware. It loads sprites, the start picture and texts from
+<code>out/wacko/</code> (made by <code>scripts/extract/extract_wacko.py</code> from your own dump).
+Keys: <kbd>1</kbd>–<kbd>9</kbd> (or <kbd>Q W E</kbd> / <kbd>A S D</kbd> / <kbd>Z X C</kbd>) hit, <kbd>*</kbd> sound,
+<kbd>F1</kbd>/<kbd>F2</kbd> soft keys, <kbd>Enter</kbd> OK, <kbd>Esc</kbd> end.</p>
+
+<div class="phone">
+  <div class="lcd">
+    <div class="screen">
+      <canvas id="lcd" width="101" height="64" aria-label="game screen"></canvas>
+      <div class="overlay" id="overlay"></div>
+    </div>
+    <div class="soft"><span id="softL"></span><span id="softR"></span></div>
+  </div>
+  <div class="keys">
+    <div class="row2">
+      <button class="softk" data-k="LSK">◤ Left soft</button>
+      <button class="softk green" data-k="OK">OK</button>
+      <button class="softk" data-k="RSK">Right soft ◥</button>
+    </div>
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button data-k="*">*</button><button data-k="0">0</button><button class="red" data-k="RED">End</button>
+  </div>
+</div>
+<div class="status" id="status"></div>
+<div class="data" id="data"></div>
+
+<script>
+'use strict';
+/* ---------------------------------------------------------------------------------------------
+ * Rules from the decompiled firmware (NOTES.md, "Wacko"; functions FUN_d528cc, FUN_d530ee,
+ * FUN_d53488, FUN_d5217e, FUN_d52734, FUN_d527da, FUN_d52e70).
+ * Hole states: 1 hit-wacko, 2 empty, 3..8 wacko (6 = fully up, holds), 9 -> 2,
+ *              10 hit-rabbit, 11 empty (after rabbit), 12..17 rabbit (15 holds), 18 -> 11.
+ * ------------------------------------------------------------------------------------------- */
+const TICK_UNITS = [52, 26, 13];            // FUN_d520da: timer period per level
+const UNIT_MS = 4.615;                      // assumed: GSM frame timer unit (likely, not proven)
+const TIME_START = [45000, 65000, 110000];  // FUN_d528cc; -200 per tick (FUN_d53488)
+const MSG_PAUSE_MS = 1500;                  // FUN_d52058(0x5DC): sound-toggle message, ticks pause
+
+let TXT = {
+  title: 'Whack', start: 'Start', options: 'Options', menu: ['Start', 'Level', 'Highscore', 'Instructions'],
+  levels: ['Level 1', 'Level 2', 'Level 3'], best_score: 'Best score:\n%d points\n%d%', back: 'Back',
+  result: 'Points: %d\nRate: %d\nHits:%d\nBunnies:%d',
+  instructions: ['Keys 1 to 9 hit the\nmatching hole.\nDon\'t hit the bunnies.', 'Press * to switch\nthe key sound.'],
+};
+let SPR = null, SPLASH = null;
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('whackport.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('whackport.' + k, JSON.stringify(v)); } catch {} },
+};
+
+/* random(n) returns 0..n inclusive (FUN_beb128: random(2) picks one of 3 rows/columns) */
+const random = n => Math.floor(Math.random() * (n + 1));
+
+const G = { screen: 'start', sel: 0, text: '', textTitle: '', sound: true, level: 1,
+            cells: [], timers: [], hits: 0, shown: 0, score: 0, rate: 0, rabbits: 0, time: 0,
+            over: false, tickHandle: null, pausedUntil: 0, msg: '' };
+
+const cv = document.getElementById('lcd'), cx = cv.getContext('2d');
+const overlay = document.getElementById('overlay');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const fmt = (s, ...v) => { let i = 0; return s.replace(/%d/g, () => String(v[i++] ?? '')); };
+const pad = (n, w) => String(Math.max(0, n)).padStart(w, '0').slice(-w);
+
+/* ---- game: FUN_d528cc (start) -------------------------------------------------------------- */
+function startGame() {
+  G.cells = Array(9).fill(2); G.timers = Array(9).fill(1);
+  const holdUp = [6, 4, 5];                              // one wacko up per column, hold 6/4/5 ticks
+  for (let c = 0; c < 3; c++) { const r = random(2); G.cells[r * 3 + c] = 6; G.timers[r * 3 + c] = holdUp[c]; }
+  G.hits = 0; G.shown = 0; G.score = 0; G.rate = 0; G.rabbits = 0; G.over = false;
+  G.time = TIME_START[G.level - 1];
+  G.screen = 'game'; G.pausedUntil = 0;
+  render(); armTick();
+}
+function armTick() {                                    // FUN_d52148: one-shot timer, re-armed every tick
+  clearTimeout(G.tickHandle);
+  G.tickHandle = setTimeout(tick, TICK_UNITS[G.level - 1] * UNIT_MS);
+}
+/* ---- tick: FUN_d53488 ---------------------------------------------------------------------- */
+function tick() {
+  if (G.screen !== 'game' || G.over) return;
+  const now = performance.now();
+  if (now < G.pausedUntil) { G.tickHandle = setTimeout(tick, G.pausedUntil - now); return; }
+  G.msg = '';
+  G.time -= 200;
+  if (G.time > 0) { step(); render(); armTick(); return; }
+  G.over = true;                                         // game over
+  G.rate = G.shown ? Math.min(100, Math.floor(G.hits * 100 / G.shown)) : 0;   // (firmware divides without a check)
+  if (G.score > store.get('best', 0)) store.set('best', G.score);
+  if (G.rate > store.get('bestRate', 0)) store.set('bestRate', G.rate);
+  render();
+}
+/* ---- step: FUN_d5217e(0) ------------------------------------------------------------------- */
+function step() {
+  let busy = 0;
+  for (let i = 0; i < 9; i++) {
+    let s = G.cells[i];
+    if (s === 1) { if (G.timers[i] < 1) s = 2; else G.timers[i]--; }
+    if (s === 10) { if (G.timers[i] < 1) s = 11; else G.timers[i]--; }
+    if (s > 2 && s < 10) {
+      busy++;
+      if (s === 6) { if (G.timers[i] < 1) s++; else G.timers[i]--; }
+      else if (s < 9) s++;
+      if (s === 9) s = 2;
+    }
+    if (s > 11 && s < 19) {
+      busy++;
+      if (s === 15) { if (G.timers[i] < 1) s++; else G.timers[i]--; }
+      else if (s < 18) s++;
+      if (s === 18) s = 11;
+    }
+    G.cells[i] = s;
+  }
+  while (busy < random(3) + 1) {                         // spawn up to 1..4 busy holes
+    const i = random(2) * 3 + random(2), roll = random(100);
+    if (G.cells[i] === 2 || G.cells[i] === 11) {
+      if (roll < 21) G.cells[i] = 12; else { G.cells[i] = 3; G.shown++; }
+      G.timers[i] = random(5) + 4;
+      busy++;
+    }
+  }
+}
+/* ---- hit: FUN_d52734 / FUN_d527da / FUN_d5217e(1, r, c) ------------------------------------ */
+const POINTS = [14, 12, 10, 8, 6, 4, 2];                // states 3..9, times the level
+function hit(r, c) {
+  const i = r * 3 + c, s = G.cells[i];
+  if (s < 12) {
+    if (s < 3 || s > 9) return;
+    G.score += POINTS[s - 3] * G.level; G.hits++;
+  } else { G.score = Math.max(0, G.score - 10); G.rabbits++; }
+  if (s < 10) { G.cells[i] = 1; if (G.sound) beep(1320); } else { G.cells[i] = 10; if (G.sound) beep(330); }
+  G.timers[i] = 3;
+  render();
+}
+
+let actx = null;
+function beep(f) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'square'; o.frequency.value = f; g.gain.value = 0.05;
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.08);
+  } catch {}
+}
+
+/* ---- rendering ----------------------------------------------------------------------------- */
+function lcdColors() { const s = getComputedStyle(document.documentElement);
+  return {bg: s.getPropertyValue('--lcd').trim(), ink: s.getPropertyValue('--lcd-ink').trim()}; }
+function blit(sp, x0, y0) { sp.bits.forEach((row, y) => row.forEach((v, x) => { if (v) cx.fillRect(x0 + x, y0 + y, 1, 1); })); }
+function setSoft(l, r) { document.getElementById('softL').textContent = l; document.getElementById('softR').textContent = r;
+  queueMicrotask(() => overlay.querySelector('li.sel')?.scrollIntoView({block: 'nearest'})); }
+
+function render() {
+  const {bg, ink} = lcdColors();
+  cx.fillStyle = bg; cx.fillRect(0, 0, 101, 64); cx.fillStyle = ink;
+  overlay.classList.remove('on'); overlay.innerHTML = '';
+  if (G.screen === 'start') {
+    if (SPLASH) blit(SPLASH, 0, 0);
+    else { overlay.innerHTML = `<div class="hdr">${esc(TXT.title)}</div><div class="body">${esc(TXT.title)}</div>`; overlay.classList.add('on'); }
+    setSoft(TXT.start, TXT.options);
+  } else if (G.screen === 'options') {
+    const rows = [TXT.menu[0], TXT.levels[G.level - 1], TXT.menu[2], TXT.menu[3]];
+    overlay.innerHTML = `<div class="hdr">${esc(TXT.options)}</div><ul class="menu body">` +
+      rows.map((t, i) => `<li class="${i === G.sel ? 'sel' : ''}">${esc(t)}</li>`).join('') + '</ul>';
+    overlay.classList.add('on'); setSoft('OK', TXT.back);
+  } else if (G.screen === 'text') {
+    overlay.innerHTML = `<div class="hdr">${esc(G.textTitle)}</div><div class="body">${esc(G.text)}</div>`;
+    overlay.classList.add('on'); setSoft('', TXT.back);
+  } else if (G.screen === 'game') {
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {      // FUN_d52c2c layout: columns at x = 24c
+      const sp = SPR.sprites[SPR.state_sprite[G.cells[r * 3 + c]]];
+      if (sp) blit(sp, 24 * c, 18 * r + (c === 1 ? 2 : 0));
+    }
+    const icon = SPR.sprites[SPR.level_icons[G.level - 1]];
+    if (icon) blit(icon, 85, 25);
+    if (G.msg) { overlay.textContent = G.msg; overlay.classList.add('on'); }
+    if (G.over) {
+      overlay.textContent = fmt(TXT.result, pad(G.score, 4), pad(G.rate, 3), pad(G.hits, 4), pad(G.rabbits, 4));
+      overlay.classList.add('on'); setSoft('', TXT.back);
+    } else setSoft('', '');
+  }
+  document.getElementById('status').textContent = G.screen === 'game'
+    ? `${TXT.levels[G.level - 1]} · score ${G.score} · hits ${G.hits}/${G.shown} · time left ~${Math.max(0, Math.round(G.time / 200 * TICK_UNITS[G.level - 1] * UNIT_MS / 1000))} s · sound ${G.sound ? 'on' : 'off'}`
+    : `Best score ${store.get('best', 0)} · best rate ${store.get('bestRate', 0)}%`;
+}
+
+/* ---- input --------------------------------------------------------------------------------- */
+function exitGame() { clearTimeout(G.tickHandle); G.screen = 'start'; render(); }
+function press(k) {
+  if (G.screen === 'start') {
+    if (k === 'LSK' || k === 'OK') startGame();
+    else if (k === 'RSK') { G.screen = 'options'; G.sel = 0; render(); }
+    return;
+  }
+  if (G.screen === 'options') {
+    if (k === '2') G.sel = (G.sel + 3) % 4;
+    else if (k === '8') G.sel = (G.sel + 1) % 4;
+    else if (k === 'RSK' || k === 'RED') G.screen = 'start';
+    else if (k === 'OK' || k === 'LSK' || k === '5') {
+      if (G.sel === 0) { startGame(); return; }
+      if (G.sel === 1) { G.level = G.level % 3 + 1; store.set('level', G.level); }       // cycles Level 1..3 (likely)
+      if (G.sel === 2) { G.screen = 'text'; G.textTitle = TXT.menu[2]; G.text = fmt(TXT.best_score, store.get('best', 0), store.get('bestRate', 0)); }
+      if (G.sel === 3) { G.screen = 'text'; G.textTitle = TXT.menu[3]; G.text = TXT.instructions.join('\n\n'); }
+    }
+    render(); return;
+  }
+  if (G.screen === 'text') {
+    if (k === '2' || k === '8') overlay.scrollBy(0, (k === '8' ? 1 : -1) * overlay.clientHeight / 3);
+    else if (['RSK', 'RED', 'OK', 'LSK'].includes(k)) { G.screen = 'options'; render(); }
+    return;
+  }
+  if (G.screen === 'game') {
+    if (G.over) { if (k === 'RSK' || k === 'RED') exitGame(); return; }   // FUN_d530ee: keys 4 / 0x0C
+    if (k === 'RED') { exitGame(); return; }
+    if (k === '*') {                                      // long-press '*' on the phone
+      G.sound = !G.sound; store.set('sound', G.sound);
+      G.msg = G.sound ? 'Sound on' : 'Sound off'; G.pausedUntil = performance.now() + MSG_PAUSE_MS;
+      render(); return;
+    }
+    if (/^[1-9]$/.test(k) && performance.now() >= G.pausedUntil) { const n = Number(k) - 1; hit(Math.floor(n / 3), n % 3); }
+  }
+}
+document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => press(b.dataset.k)));
+const KEYMAP = {Enter: 'OK', NumpadEnter: 'OK', Escape: 'RED', F1: 'LSK', F2: 'RSK', NumpadMultiply: '*',
+  KeyQ: '1', KeyW: '2', KeyE: '3', KeyA: '4', KeyS: '5', KeyD: '6', KeyZ: '7', KeyX: '8', KeyC: '9',
+  ArrowUp: '2', ArrowDown: '8'};
+addEventListener('keydown', e => {
+  let k = KEYMAP[e.code];
+  if (!k && /^(Digit|Numpad)[0-9]$/.test(e.code)) k = e.code.slice(-1);
+  if (!k && e.key === '*') k = '*';
+  if (k) { e.preventDefault(); press(k); }
+});
+
+/* ---- placeholder assets (my own, used only when no extracted data is available) ------------ */
+function shape(w, h, f) { return {w, h, bits: Array.from({length: h}, (_, y) => Array.from({length: w}, (_, x) => f(x, y) ? 1 : 0))}; }
+function placeholderSprites() {
+  const hole = (x, y) => Math.abs(((x - 12) / 11) ** 2 + ((y - 14) / 3) ** 2 - 1) < 0.25;
+  const head = up => (x, y) => hole(x, y) || (y < 14 && ((x - 12) ** 2 + (y - 16 + up) ** 2) < 30);
+  const sp = {hole: shape(25, 18, hole), up1: shape(25, 18, head(3)), up2: shape(25, 18, head(6)), up3: shape(25, 18, head(9)),
+    up4: shape(25, 18, head(11)), hit: shape(25, 18, (x, y) => hole(x, y) || Math.abs(x - 12 - (y - 8)) < 1 || Math.abs(x - 12 + (y - 8)) < 1),
+    bun: shape(25, 18, (x, y) => hole(x, y) || (y < 14 && ((x - 12) ** 2 + (y - 9) ** 2) < 16) || (y < 6 && (x === 9 || x === 15)))};
+  const state_sprite = {1: 'hit', 2: 'hole', 3: 'up1', 4: 'up2', 5: 'up3', 6: 'up4', 7: 'up3', 8: 'up2', 9: 'up1', 10: 'hit', 11: 'hole',
+    12: 'up1', 13: 'up2', 14: 'bun', 15: 'bun', 16: 'bun', 17: 'up2', 18: 'up1'};
+  return {sprites: sp, state_sprite, level_icons: []};
+}
+
+(async () => {
+  G.sound = store.get('sound', true); G.level = Math.min(3, Math.max(1, store.get('level', 1)));
+  const base = new URL('../out/wacko/', location.href);
+  try {
+    SPR = await fetch(new URL('sprites.json', base)).then(r => r.json());
+    try { TXT = Object.assign({}, TXT, await fetch(new URL('texts.json', base)).then(r => r.json())); } catch {}
+    try { const s = await fetch(new URL('splash.json', base)).then(r => r.json()); if (s?.bits?.length) SPLASH = s; } catch {}
+    document.getElementById('data').textContent = 'Data: out/wacko (extracted)';
+  } catch {
+    SPR = placeholderSprites();
+    document.getElementById('data').textContent = 'Data: built-in placeholder';
+  }
+  render();
+})();
+</script>
+</body>
+</html>

@@ -345,3 +345,49 @@ map checkbox. Exiting a game started from it returns to the start screen. Text c
 - Reusable decoder: `scripts/extract/siemens_pics.py <dump> <id>…`.
 - The game's own 10×8 tiles are *not* in this table: they use their own unpacked descriptors at
   0xCB4ED0 (type 1, drawn with `FUN_d434b6`).
+
+# Wacko (game id 8)
+
+## Location (confirmed)
+| Address | Role |
+|---|---|
+| 0xD53C96 → 0xD53BE4 | Games-menu entry: start screen (descriptor 0xD53B28, splash picture 0xCD), loads saved level/best score/best rate |
+| 0xD53B4E / 0xD53B7A | start-screen key / create-close callbacks (event 5 → start, 0x2D → Options) |
+| 0xD535D6 | start the game screen (descriptor 0xD53AD6 → method table 0xD53ABE) |
+| 0xD528CC | create / start game |
+| 0xD530EE | key handler |
+| 0xD53488 | tick (timer callback): time, step, game over |
+| 0xD5217E | step (state machine + spawning) and hit animation |
+| 0xD52734 / 0xD527DA | hit test / points (switch table 0xD53B02) |
+| 0xD52444 / 0xD52506 | redraw / draw one hole (switch table 0xD53ADE → picture descriptors) |
+| 0xD52C2C | layout: 3 column layers at x = 24c (middle column y + 2), cells 24×18; level icon at (85,25) |
+| 0xD52E70 | result screen (text 0x3D7) |
+| 0xD51DCE → descriptor 0xD51FF8 | Options: Start, Level (shows "Level 1/2/3"), Highscore (0x3D6), Instructions (0x3E5, 0x9F8) |
+
+## Rules
+See `docs/wacko_logic.c`.
+- **Board and states:** a 3×3 board with per-hole states. A wacko rises in 3 frames, holds
+  for 4–9 ticks, then sinks. A rabbit follows the same cycle in its own states. At least
+  1–4 holes are kept busy; a new animal is a rabbit with probability 21/101.
+- **Points:** hitting a wacko earns 14/12/10/8/6/4/2 × level depending on its frame (the
+  earlier the better). Hitting a rabbit costs 10, never going below 0.
+- **Rate** = hits × 100 / wackos spawned, capped at 100. The 3 wackos already up at the start
+  aren't counted, and there's no division-by-zero check.
+- **Timing by level (1/2/3):**
+  - tick period 52/26/13 timer units
+  - duration 45000/65000/110000 at −200 per tick, i.e. 225/325/550 ticks
+  - The unit is **likely** the GSM frame (4.615 ms), which gives about 54 / 39 / 33 s.
+- **Sound toggle:** a long press of `*` (confirmed by instruction text 0x9F8) toggles key
+  sound. The tick is paused while its 1.5 s message is shown.
+- **Saved values:** best score and best rate, kept separately, plus the level.
+- **Quirk:** `random(n)` returns 0..n inclusive (**likely**, from how rows and columns are
+  picked).
+
+## Assets and port
+- `scripts/extract/extract_wacko.py` writes `out/wacko/sprites.json` (state → sprite mapping
+  read from the draw switch's code), `splash.json` (picture 0xCD) and `texts.json`.
+- `port/wacko.html` loads them at runtime and has placeholder art without them.
+  - Tested: hits and points, the rabbit penalty, step transitions, game over and rate, saved
+    bests, level cycling, the board layout and tick rate.
+  - Level cycling 1→2→3 on select is **likely** (the item shows "Level N"; the cycle itself
+    wasn't traced).
