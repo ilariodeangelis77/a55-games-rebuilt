@@ -131,3 +131,23 @@ if __name__ == '__main__':
     with open(os.path.join(out, 'texts.json'), 'w', encoding='utf-8') as f:
         json.dump(texts(d), f, ensure_ascii=False, indent=1)
     print('texts.json written')
+    # Start-screen splash: descriptor 0xCAFFC6 -> +0x18 sub-struct {x, y, w=101, h=50, ->list};
+    # the list at 0xCAFFC4 holds the picture id (0xCB), looked up via siemens_pics (FUN_a95df8).
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import siemens_pics
+    sub = 0xCAFFC6 + 0x18
+    lst_off, lst_page = struct.unpack_from('<HH', d, sub + 8 - B)
+    pid = struct.unpack_from('<H', d, lst_page * 0x4000 + (lst_off & 0x3FFF) - B)[0]
+    sdesc = siemens_pics.descriptor(d, pid)
+    splash = dict(id=pid, w=sdesc['w'], h=sdesc['h'], bits=siemens_pics.decode(d, sdesc))
+    json.dump(splash, open(os.path.join(out, 'splash.json'), 'w'))
+    try:
+        from PIL import Image
+        im = Image.new('L', (splash['w'], splash['h']), 255)
+        for y, row in enumerate(splash['bits']):
+            for x, v in enumerate(row):
+                if v: im.putpixel((x, y), 0)
+        im.save(os.path.join(out, 'splash.png'))
+    except ImportError:
+        pass
+    print('splash.json written (picture 0x%x, %dx%d)' % (pid, splash['w'], splash['h']))

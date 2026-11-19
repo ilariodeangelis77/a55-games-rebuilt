@@ -138,6 +138,7 @@ let TXT = {
                  'Right soft key\nresets the level,\nleft soft key undoes\none step.', '"Rotate map" flips\nthe board diagonally\nevery 50 steps.'],
   best_score: 'Best score: %d', won: 'You have won!\nYour score: %d', lost: 'You have lost!\nYour score: %d', ok: 'OK', back: 'Back',
 };
+let SPLASH = null;        // start-screen picture from out/mtb/splash.json (optional)
 let DATA = null;          // {levels, tiles}
 let TILES = null;         // tile index -> ImageData-like bitmaps
 const G = {               // mirrors the firmware state struct at page 0x54
@@ -303,8 +304,13 @@ function render() {
   } else if (G.screen === 'text') {
     overlay.textContent = G.text; overlay.classList.add('on'); setSoft('', 'Back');
   } else if (G.screen === 'orig') {                       // the game's own start screen (FUN_cb503a)
-    overlay.innerHTML = `<div class="hdr">${esc(TXT.title)}</div><div class="body">${esc(TXT.title)}</div>`;
-    overlay.classList.add('on'); setSoft(TXT.start, TXT.options);
+    if (SPLASH) {                                         // picture 0xCB, drawn at the top of the 101x50 area
+      SPLASH.bits.forEach((row, y) => row.forEach((v, x) => { if (v) cx.fillRect(x, y, 1, 1); }));
+    } else {
+      overlay.innerHTML = `<div class="hdr">${esc(TXT.title)}</div><div class="body">${esc(TXT.title)}</div>`;
+      overlay.classList.add('on');
+    }
+    setSoft(TXT.start, TXT.options);
   } else if (G.screen === 'origOpts') {                   // Options list (descriptor 0xCB1E7E..)
     const rows = TXT.menu.map((t, i) => esc(t) + (i === 4 ? (G.rotate ? ' [x]' : ' [ ]') : ''));
     overlay.innerHTML = `<div class="hdr">${esc(TXT.options)}</div><ul class="menu body">` +
@@ -453,6 +459,7 @@ function useData(levels, tiles, source) {
     const base = new URL('../out/mtb/', location.href);
     const [lv, tl] = await Promise.all([fetch(new URL('levels.json', base)).then(r => r.json()), fetch(new URL('tiles.json', base)).then(r => r.json())]);
     try { TXT = Object.assign({}, TXT, await fetch(new URL('texts.json', base)).then(r => r.json())); } catch {}
+    try { const s = await fetch(new URL('splash.json', base)).then(r => r.json()); if (s?.bits?.length) SPLASH = s; } catch {}
     useData(lv, tl, 'out/mtb (extracted)');
   } catch {
     useData(PLACEHOLDER.levels, placeholderTiles(), 'built-in placeholder');

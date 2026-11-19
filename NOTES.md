@@ -299,8 +299,11 @@ Reached from Games → Move the box (`FUN_cb5074` → `FUN_cb503a`).
   - Left = Start, right = Options: **confirmed** by a photo of a real A55 (Russian UI:
     "Старт." / "Опции"), matching the table order.
   - Body: **a full-width splash picture** (confirmed by the same photo): a round, angry
-    bomb-like creature on the left, a running man, brick walls and boxes. The bitmap's
-    location in flash is **not yet found**; the port currently shows the title instead.
+    bomb-like creature on the left, a running man, brick walls and boxes.
+    **Found: picture id 0xCB, 101×49** (confirmed, it matches the photo). The chain:
+    descriptor +0x18 = `{x 0, y 0, w 101, h 50, → list}`, and the list at 0xCAFFC4 holds the
+    id 0xCB (Wacko's start screen, descriptor 0xD53B28, uses 0xCD).
+    `extract_mtb.py` writes `splash.json`/`splash.png`; the port draws it on the start screen.
 - **Options list:** descriptor around 0xCB1E7E, five 18-byte item records:
   1. **Start**: text 0x1B1, starts the game.
   2. **Level**: text 0x3DA. A 2-digit number field.
@@ -326,3 +329,19 @@ Reached from Games → Move the box (`FUN_cb5074` → `FUN_cb503a`).
 number-entry Level (same input rules), Highscore, Instructions (2/8 scroll) and the Rotate
 map checkbox. Exiting a game started from it returns to the start screen. Text comes from
 `texts.json`; without it the port uses its own wording.
+
+## Picture system (confirmed)
+- **Draw by id:** `FUN_a95066(x, y, id)` → `FUN_a9514a` → `FUN_a95df8(theme, id)`. The theme
+  struct (`FUN_c6f124()`) holds a far pointer to the descriptor table (+0x0E/+0x10) and a count
+  (+0x12). The descriptor is at `table + id × 8`. IDs 0x4E20–0x4E9E are special (RAM) pictures.
+- **Table** in this dump: CPU **0xE6C5B8**, 525 descriptors
+  `{u8 w, u8 h, u16 type, u16 offset, u16 page}`. 523 are type 0x81, 2 are type 0x01.
+  (So 0xE30000+ holds picture data, not only file-system data.)
+- **Packed 1-bpp (type 0x81),** decoder `FUN_a9f67a`, called from `FUN_a95828`:
+  - a row-major pixel stream; tokens can span rows
+  - `b & 0x80 == 0` → literal: 7 pixels = bits 6..0, MSB first
+  - otherwise → a run of `b & 0x3F` pixels in colour `(b >> 6) & 1` (1 = black)
+  - check: picture 0 (4×4) is the single byte 0x90 = white run of 16
+- Reusable decoder: `scripts/extract/siemens_pics.py <dump> <id>…`.
+- The game's own 10×8 tiles are *not* in this table: they use their own unpacked descriptors at
+  0xCB4ED0 (type 1, drawn with `FUN_d434b6`).
