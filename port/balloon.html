@@ -46,15 +46,16 @@
     <section class="card">
       <h2>Controls</h2>
       <dl class="controls">
-          <dt>hold <kbd>1</kbd>–<kbd>9</kbd> or arrows</dt><dd>Aim (8 directions)</dd>
-          <dt><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd> <kbd>A</kbd> <kbd>D</kbd> <kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd></dt><dd>Aim, as a 3×3 block</dd>
-          <dt><kbd>Shift</kbd> + aim</dt><dd>Fast aim</dd>
-          <dt><kbd>5</kbd> <kbd>S</kbd> <kbd>Space</kbd></dt><dd>Shoot</dd>
-          <dt><kbd>0</kbd></dt><dd>Pause and show the status</dd>
-          <dt><kbd>F1</kbd> <kbd>F2</kbd> · <kbd>Enter</kbd></dt><dd>Soft keys · OK</dd>
-          <dt><kbd>*</kbd></dt><dd>Sound on/off</dd>
-          <dt><kbd>Esc</kbd></dt><dd>End: leave the game, then back to the Games menu</dd>
+          <dt>hold <span class="pk">1</span>–<span class="pk">9</span></dt><dd>Aim the crosshair (8 directions)</dd>
+          <dt><kbd>Shift</kbd> + aim</dt><dd>Aim faster</dd>
+          <dt><span class="pk">5</span></dt><dd>Shoot</dd>
+          <dt><span class="pk">0</span></dt><dd>Pause and show the status</dd>
+          <dt><span class="pk">◤ soft</span> <span class="pk">soft ◥</span> <span class="pk green">OK</span></dt><dd>Soft keys and OK in the menus</dd>
+          <dt><span class="pk">*</span></dt><dd>Sound on/off</dd>
+          <dt><span class="pk red">End</span></dt><dd>Leave the game; on the start screen, back to the Games menu</dd>
       </dl>
+      <div class="controls-foot"><span class="note">These are phone keys; you choose which keyboard keys press them.</span>
+        <button class="btn" data-open-keymap>Keyboard keys…</button></div>
     </section>
   </aside>
   <aside class="panel panel-r">
@@ -71,6 +72,7 @@
 </main>
 <footer class="site-foot" id="foot"></footer>
 <script src="shell.js"></script>
+<script src="keys.js"></script>
 <script>
 'use strict';
 /* ---------------------------------------------------------------------------------------------
@@ -368,13 +370,11 @@ function press(k, fast) {
   if (k === '5') { shoot(); return; }
   if (AIM[k]) aim(+k, fast);
 }
-const KEYMAP = {Enter: 'OK', NumpadEnter: 'OK', Escape: 'RED', F1: 'LSK', F2: 'RSK', NumpadMultiply: '*', Space: '5', KeyS: '5',
-  ArrowUp: '2', ArrowDown: '8', ArrowLeft: '4', ArrowRight: '6', KeyQ: '1', KeyW: '2', KeyE: '3', KeyA: '4', KeyD: '6',
-  KeyZ: '7', KeyX: '8', KeyC: '9'};
-const keyOf = e => KEYMAP[e.code] || (/^(Digit|Numpad)[0-9]$/.test(e.code) ? e.code.slice(-1) : (e.key === '*' ? '*' : null));
-addEventListener('keydown', e => { const k = keyOf(e); if (!k) return; e.preventDefault();
-  if (e.repeat && AIM[k]) return; press(k, e.shiftKey); });
-addEventListener('keyup', e => { const k = keyOf(e); if (k && AIM[k]) release(+k); });
+// keyboard -> phone keys: port/keys.js (one mapping shared by every page)
+PhoneKeys.listen({
+  down: (k, e) => { if (e.repeat && AIM[k]) return; press(k, e.shiftKey); },   // Shift = fast aim
+  up: k => { if (AIM[k]) release(+k); },
+});
 document.querySelectorAll('[data-k]').forEach(b => {
   const k = b.dataset.k;
   b.addEventListener('pointerdown', e => { e.preventDefault(); press(k, false); });

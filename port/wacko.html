@@ -40,13 +40,13 @@
     <section class="card">
       <h2>Controls</h2>
       <dl class="controls">
-          <dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Hit the matching hole</dd>
-          <dt><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd> <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd></dt><dd>Same, as a 3×3 block</dd>
-          <dt><kbd>F1</kbd> <kbd>F2</kbd></dt><dd>Left / right soft key</dd>
-          <dt><kbd>Enter</kbd></dt><dd>OK</dd>
-          <dt><kbd>*</kbd></dt><dd>Sound on/off</dd>
-          <dt><kbd>Esc</kbd></dt><dd>End: leave the game, then back to the Games menu</dd>
+          <dt><span class="pk">1</span>–<span class="pk">9</span></dt><dd>Hit the matching hole (the keypad is the 3×3 field)</dd>
+          <dt><span class="pk">◤ soft</span> <span class="pk">soft ◥</span> <span class="pk green">OK</span></dt><dd>Soft keys and OK in the menus</dd>
+          <dt><span class="pk">*</span></dt><dd>Sound on/off</dd>
+          <dt><span class="pk red">End</span></dt><dd>Leave the game; on the start screen, back to the Games menu</dd>
       </dl>
+      <div class="controls-foot"><span class="note">These are phone keys; you choose which keyboard keys press them.</span>
+        <button class="btn" data-open-keymap>Keyboard keys…</button></div>
     </section>
   </aside>
   <aside class="panel panel-r">
@@ -63,6 +63,7 @@
 </main>
 <footer class="site-foot" id="foot"></footer>
 <script src="shell.js"></script>
+<script src="keys.js"></script>
 <script>
 'use strict';
 /* ---------------------------------------------------------------------------------------------
@@ -262,15 +263,8 @@ function press(k) {
   }
 }
 document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => press(b.dataset.k)));
-const KEYMAP = {Enter: 'OK', NumpadEnter: 'OK', Escape: 'RED', F1: 'LSK', F2: 'RSK', NumpadMultiply: '*',
-  KeyQ: '1', KeyW: '2', KeyE: '3', KeyA: '4', KeyS: '5', KeyD: '6', KeyZ: '7', KeyX: '8', KeyC: '9',
-  ArrowUp: '2', ArrowDown: '8'};
-addEventListener('keydown', e => {
-  let k = KEYMAP[e.code];
-  if (!k && /^(Digit|Numpad)[0-9]$/.test(e.code)) k = e.code.slice(-1);
-  if (!k && e.key === '*') k = '*';
-  if (k) { e.preventDefault(); press(k); }
-});
+// keyboard -> phone keys: port/keys.js (one mapping shared by every page)
+PhoneKeys.listen({down: k => press(k)});
 
 /* ---- placeholder assets (my own, used only when no extracted data is available) ------------ */
 function shape(w, h, f) { return {w, h, bits: Array.from({length: h}, (_, y) => Array.from({length: w}, (_, x) => f(x, y) ? 1 : 0))}; }

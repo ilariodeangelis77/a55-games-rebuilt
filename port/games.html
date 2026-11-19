@@ -40,10 +40,12 @@
     <section class="card">
       <h2>Controls</h2>
       <dl class="controls">
-          <dt><kbd>4</kbd> <kbd>6</kbd> · <kbd>2</kbd> <kbd>8</kbd> or arrows</dt><dd>Browse</dd>
-          <dt><kbd>F1</kbd> <kbd>Enter</kbd> <kbd>5</kbd> or click</dt><dd>Select</dd>
-          <dt><kbd>Esc</kbd></dt><dd>In Setup: back. On a game's start screen: back here</dd>
+          <dt><span class="pk">4</span> <span class="pk">6</span> · <span class="pk">2</span> <span class="pk">8</span></dt><dd>Browse</dd>
+          <dt><span class="pk">◤ soft</span> <span class="pk green">OK</span> <span class="pk">5</span> or click</dt><dd>Select</dd>
+          <dt><span class="pk red">End</span></dt><dd>In Setup: back. On a game's start screen: back here</dd>
       </dl>
+      <div class="controls-foot"><span class="note">These are phone keys; you choose which keyboard keys press them.</span>
+        <button class="btn" data-open-keymap>Keyboard keys…</button></div>
     </section>
   </aside>
   <aside class="panel panel-r">
@@ -60,6 +62,7 @@
 </main>
 <footer class="site-foot" id="foot"></footer>
 <script src="shell.js"></script>
+<script src="keys.js"></script>
 <script>
 'use strict';
 /* Menu structure from the firmware (NOTES.md, "Games menu"): header text 0x19F, five 18-byte
@@ -148,7 +151,7 @@ function render() {
     setSoft(MENU.select, '');
     document.getElementById('status').textContent = `${MENU.header} · ${S.sel + 1}/${MENU.items.length} · ${it.title}`;
   } else {                                                  // Setup list (contents approximated, see NOTES.md)
-    const rows = [`${MENU.sound}: ${soundOn() ? 'on' : 'off'}`, `LCD depth: ${window.LcdDepth?.get() ? 'on' : 'off'}`];
+    const rows = [`${MENU.sound}: ${soundOn() ? 'on' : 'off'}`, `LCD depth: ${window.LcdDepth?.get() ? 'on' : 'off'}`, 'Keyboard keys…'];
     overlay.innerHTML = `<div class="hdr">${esc(it.title)}</div><ul class="menu body">` +
       rows.map((t, i) => `<li data-i="${i}" class="${i === S.setupSel ? 'sel' : ''}">${esc(t)}</li>`).join('') + '</ul>';
     overlay.classList.add('on'); setSoft(MENU.select, MENU.back);
@@ -171,10 +174,12 @@ function press(k) {
     ls.set('gamesmenu.sel', S.sel);
     render(); return;
   }
-  if (k === '2' || k === '8') S.setupSel = (S.setupSel + 1) % 2;
+  if (k === '2') S.setupSel = (S.setupSel + 2) % 3;
+  else if (k === '8') S.setupSel = (S.setupSel + 1) % 3;
   else if (k === 'OK' || k === 'LSK' || k === '5') {
     if (S.setupSel === 0) { const v = !soundOn(); SOUND_KEYS.forEach(key => ls.set(key, v)); }
-    else window.LcdDepth?.toggle();
+    else if (S.setupSel === 1) window.LcdDepth?.toggle();
+    else { PhoneKeys.open(); return; }            // the global keyboard mapping (port/keys.js)
   }
   else if (k === 'RSK' || k === 'RED') S.screen = 'menu';
   render();
@@ -182,13 +187,8 @@ function press(k) {
 document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => press(b.dataset.k)));
 cv.addEventListener('click', () => { if (S.screen === 'menu') open(); });
 addEventListener('lcddepthchange', () => { if (S.screen === 'setup') render(); });   // checkbox under the phone
-const KEYMAP = {ArrowUp: '2', ArrowDown: '8', ArrowLeft: '4', ArrowRight: '6', Enter: 'OK', NumpadEnter: 'OK',
-                Escape: 'RED', F1: 'LSK', F2: 'RSK'};
-addEventListener('keydown', e => {
-  let k = KEYMAP[e.code];
-  if (!k && /^(Digit|Numpad)[0-9]$/.test(e.code)) k = e.code.slice(-1);
-  if (k) { e.preventDefault(); press(k); }
-});
+// keyboard -> phone keys: port/keys.js (one mapping shared by every page)
+PhoneKeys.listen({down: k => press(k)});
 (async () => {
   const data = document.getElementById('data');
   try {

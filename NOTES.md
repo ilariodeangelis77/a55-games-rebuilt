@@ -550,3 +550,24 @@ open `http://localhost:8765/` (redirects to the Games menu).
   - The games' own rendering code is untouched.
 - **Toggle:** the "LCD depth" checkbox under each phone, or Games → Setup → "LCD depth". The
   setting is shared by all pages (localStorage `lcdport.depth`) and is on by default.
+
+# Keyboard mapping (port addition, shared by all pages)
+- `port/keys.js` replaces the per-page key tables and Move the box's old Controls screen.
+  - The games only receive phone keys: `LSK`, `OK`, `RSK`, `0`–`9`, `*`, `RED`.
+  - One mapping, phone key → list of `KeyboardEvent.code`, stored in localStorage `lcdport.keys`.
+  - The same mapping is used by every page and stays in sync across tabs (storage event).
+  - A keyboard key drives one phone key only. Ctrl, Alt, Meta and Shift can't be mapped; Shift
+    stays free for Balloon Shooter's fast aim.
+  - Key-down and key-up both reach the game, together with the event. This keeps hold-to-walk,
+    hold-to-aim, the ignored auto-repeat and Shift working as before.
+- **Opening it:** the "Keyboard keys…" button in every Controls card, Games → Setup → Keyboard
+  keys, or the Move the box port menu.
+- **Defaults:** the union of the old per-page tables. F1/F2 soft keys, Enter OK, Esc End. Digits
+  and numpad; Q W E / A S D / Z X C as the 3×3 keypad; arrows on 2 4 6 8; S and Space on 5.
+  - **One change:** Space now presses 5 everywhere. Before, Stack Attack used it for "jump up" (2).
+- **Migration:** keys that had been changed in the old Move the box Controls screen
+  (`boxport.bindings`) are imported once.
+- **Exception:** the typed-digit shortcut in Move the box's level-number field still reads the
+  typed character.
+- **Controls cards:** they now describe phone keys (what each phone key does in that game). The
+  on-screen keypad shows each key's keyboard keys as a small hint.

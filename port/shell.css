@@ -109,3 +109,10 @@ canvas { display: block; width: 100%; image-rendering: pixelated; image-renderin
 /* ---- footer ------------------------------------------------------------------------------ */
 .site-foot { border-top: 1px solid var(--line); }
 .site-foot div { max-width: 1320px; margin: 0 auto; padding: 14px 16px 20px; font-size: 12px; color: var(--muted); }
+
+/* phone-key chips in the Controls cards (the keyboard side is set in the Keyboard keys dialog) */
+.pk { display: inline-block; min-width: 1.9em; text-align: center; font: 600 11.5px/1.65 system-ui, sans-serif; padding: 0 6px;
+      border-radius: 6px; background: var(--key); color: var(--key-ink); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+.pk.red { background: var(--key-red); } .pk.green { background: var(--key-green); }
+.controls-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+                 margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }

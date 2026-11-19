@@ -34,24 +34,31 @@ Then open <http://localhost:8765/>. It redirects to the Games menu.
 
 ### Controls
 
-Every page lists its keys next to the phone. The common ones:
+The games only know the phone's keys: 1–9, 0, `*`, the two soft keys, OK and End. **Which keyboard
+keys press them is up to you.** Open **Keyboard keys…** (the button under Controls on every page,
+or Games → Setup → Keyboard keys). It shows a keypad where each phone key can have any number of
+keyboard keys. The same mapping applies to every game and is saved in your browser. The on-screen
+keys show their keyboard keys as small hints.
 
-| Key | Phone key |
+Default mapping:
+
+| Phone key | Keyboard |
 |---|---|
-| `F1` / `F2` | left / right soft key |
-| `Enter` | OK |
-| `Esc` | End: leave the game; on a start screen, back to the Games menu |
-| `0`–`9`, arrows | keypad |
-| `*` | sound on/off (in game) |
+| Left soft / Right soft | `F1` / `F2` |
+| OK | `Enter` |
+| End | `Esc` |
+| 1–9, 0 | number row and numpad; also `Q W E` / `A S D` / `Z X C` as a 3×3 block, arrows for 2 4 6 8, `Space` for 5 |
+| `*` | numpad `*` (or a typed `*`) |
 
-You can also click the on-screen keys. **LCD depth** (a soft shadow behind every pixel, like a
-real passive LCD) can be switched in the Settings card or under Games → Setup.
+Each page lists what the phone keys do in that game. You can also click the on-screen keys.
+**LCD depth** (a soft shadow behind every pixel, like a real passive LCD) can be switched in the
+Settings card or under Games → Setup.
 
 ## What's where
 
 | Path | What |
 |---|---|
-| `port/` | The pages: `games.html` (menu), `index.html` (Move the box), `wacko.html`, `balloon.html`, `stack.html`, plus the shared `shell.css`, `shell.js`, `lcd-depth.js` |
+| `port/` | The pages: `games.html` (menu), `index.html` (Move the box), `wacko.html`, `balloon.html`, `stack.html`, plus the shared `shell.css`, `shell.js`, `keys.js` (keyboard mapping), `lcd-depth.js` |
 | `scripts/extract/` | Extractors: text pack decoder, picture decoder, one script per game, and level tools (render, solve) |
 | `scripts/ghidra/` | Ghidra headless scripts used for the analysis (C166 module) |
 | `docs/*_logic.c` | Cleaned-up pseudo-C of each game's logic, with the original function addresses |
@@ -62,7 +69,8 @@ real passive LCD) can be switched in the Settings card or under Games → Setup.
 - **From the firmware** (and confirmed in `NOTES.md`): game rules, timings and scoring; level
   layouts; sprites and splash pictures; texts; and the Games menu's order and titles.
 - **Port additions:**
-  - in Move the box: the port menu (level select, key remapping)
+  - in Move the box: the port menu (level select)
+  - everywhere: the global keyboard mapping
   - in the Games menu: the custom Setup picture and the page dots
   - everywhere: the LCD depth effect and the page layout around the phone
 

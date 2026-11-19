@@ -46,14 +46,16 @@
     <section class="card">
       <h2>Controls</h2>
       <dl class="controls">
-          <dt>hold <kbd>4</kbd> <kbd>6</kbd> or ← →</dt><dd>Walk and push crates</dd>
-          <dt><kbd>1</kbd> <kbd>3</kbd> or <kbd>Q</kbd> <kbd>E</kbd></dt><dd>Jump left / right</dd>
-          <dt><kbd>2</kbd> <kbd>W</kbd> ↑ <kbd>Space</kbd></dt><dd>Jump up</dd>
-          <dt><kbd>0</kbd></dt><dd>Pause and show the score</dd>
-          <dt><kbd>F1</kbd> <kbd>F2</kbd> · <kbd>Enter</kbd></dt><dd>Soft keys · OK</dd>
-          <dt><kbd>*</kbd></dt><dd>Sound on/off</dd>
-          <dt><kbd>Esc</kbd></dt><dd>End: leave the game, then back to the Games menu</dd>
+          <dt>hold <span class="pk">4</span> <span class="pk">6</span></dt><dd>Walk and push crates</dd>
+          <dt><span class="pk">1</span> <span class="pk">3</span></dt><dd>Jump left / right</dd>
+          <dt><span class="pk">2</span></dt><dd>Jump up</dd>
+          <dt><span class="pk">0</span></dt><dd>Pause and show the score</dd>
+          <dt><span class="pk">◤ soft</span> <span class="pk">soft ◥</span> <span class="pk green">OK</span></dt><dd>Soft keys and OK in the menus</dd>
+          <dt><span class="pk">*</span></dt><dd>Sound on/off</dd>
+          <dt><span class="pk red">End</span></dt><dd>Leave the game; on the start screen, back to the Games menu</dd>
       </dl>
+      <div class="controls-foot"><span class="note">These are phone keys; you choose which keyboard keys press them.</span>
+        <button class="btn" data-open-keymap>Keyboard keys…</button></div>
     </section>
   </aside>
   <aside class="panel panel-r">
@@ -70,6 +72,7 @@
 </main>
 <footer class="site-foot" id="foot"></footer>
 <script src="shell.js"></script>
+<script src="keys.js"></script>
 <script>
 'use strict';
 /* ---------------------------------------------------------------------------------------------
@@ -493,11 +496,8 @@ function press(k) {
   S.held = true;
 }
 function release() { if (G.screen === 'game' && !S.over) { S.a8 = 5; S.held = false; } }
-const KEYMAP = {Enter: 'OK', NumpadEnter: 'OK', Escape: 'RED', F1: 'LSK', F2: 'RSK', NumpadMultiply: '*',
-  ArrowLeft: '4', ArrowRight: '6', ArrowUp: '2', KeyQ: '1', KeyW: '2', KeyE: '3', KeyA: '4', KeyD: '6', Space: '2'};
-const keyOf = e => KEYMAP[e.code] || (/^(Digit|Numpad)[0-9]$/.test(e.code) ? e.code.slice(-1) : (e.key === '*' ? '*' : null));
-addEventListener('keydown', e => { const k = keyOf(e); if (!k) return; e.preventDefault(); if (e.repeat) return; press(k); });
-addEventListener('keyup', e => { if (keyOf(e)) release(); });
+// keyboard -> phone keys: port/keys.js (one mapping shared by every page)
+PhoneKeys.listen({down: (k, e) => { if (!e.repeat) press(k); }, up: () => release()});
 document.querySelectorAll('[data-k]').forEach(b => {
   b.addEventListener('pointerdown', e => { e.preventDefault(); press(b.dataset.k); });
   b.addEventListener('pointerup', release); b.addEventListener('pointerleave', release);

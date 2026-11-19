@@ -43,14 +43,16 @@
     <section class="card">
       <h2>Controls</h2>
       <dl class="controls">
-          <dt><kbd>2</kbd><kbd>4</kbd><kbd>6</kbd><kbd>8</kbd> or arrows</dt><dd>Move</dd>
-          <dt><kbd>Q</kbd> <kbd>Backspace</kbd> <kbd>F1</kbd></dt><dd>Undo (left soft key)</dd>
-          <dt><kbd>W</kbd> <kbd>F2</kbd></dt><dd>Restart the level (right soft key)</dd>
-          <dt><kbd>Enter</kbd> <kbd>5</kbd></dt><dd>OK / select</dd>
-          <dt><kbd>*</kbd> numpad</dt><dd>Sound on/off</dd>
-          <dt><kbd>Esc</kbd></dt><dd>End: leave the game, then back to the Games menu</dd>
+          <dt><span class="pk">2</span> <span class="pk">4</span> <span class="pk">6</span> <span class="pk">8</span></dt><dd>Move</dd>
+          <dt><span class="pk">◤ soft</span></dt><dd>Undo</dd>
+          <dt><span class="pk">soft ◥</span></dt><dd>Restart the level</dd>
+          <dt><span class="pk green">OK</span> <span class="pk">5</span></dt><dd>Select in the menus</dd>
+          <dt><span class="pk">*</span></dt><dd>Sound on/off</dd>
+          <dt><span class="pk red">End</span></dt><dd>Leave the game; on the start screen, back to the Games menu</dd>
       </dl>
-        <p class="note" style="margin-top:10px">Every key can be remapped under <em>Controls</em> in the port menu; <em>Level</em> picks where to start. Opened from the Games menu, the page starts on the phone's original start screen.</p>
+      <p class="note" style="margin-top:10px"><em>Level</em> in the port menu picks where to start. Opened from the Games menu, the page starts on the phone's original start screen.</p>
+      <div class="controls-foot"><span class="note">These are phone keys; you choose which keyboard keys press them.</span>
+        <button class="btn" data-open-keymap>Keyboard keys…</button></div>
     </section>
   </aside>
   <aside class="panel panel-r">
@@ -67,6 +69,7 @@
 </main>
 <footer class="site-foot" id="foot"></footer>
 <script src="shell.js"></script>
+<script src="keys.js"></script>
 <script>
 'use strict';
 /* ---------------------------------------------------------------------------------------------
@@ -134,41 +137,7 @@ const G = {               // mirrors the firmware state struct at page 0x54
   steps: 0, won: 0, active: 0, started: 0, undoOk: 0, nboxes: 0,
   level: 0, total: 0, high: 0, sound: true, rotate: false, screen: FROM_GAMES ? 'orig' : 'menu', menuSel: 0, result: null,
   menuLevel: 0,             // port addition: level picked in the menu
-  ctrlSel: 0, capture: null // port addition: Controls screen (selected row, action awaiting a key)
 };
-
-/* ---- key bindings (port addition): action -> list of KeyboardEvent.code values ----------- */
-const ACTIONS = [
-  ['up', 'Up', '2'], ['down', 'Down', '8'], ['left', 'Left', '4'], ['right', 'Right', '6'],
-  ['undo', 'Undo (left soft)', 'LSK'], ['reset', 'Reset (right soft)', 'RSK'],
-  ['ok', 'OK / select', 'OK'], ['sound', 'Sound on/off', '*'], ['exit', 'Exit (red key)', 'RED'],
-];
-const DEFAULT_BINDINGS = {
-  up: ['ArrowUp', 'Digit2', 'Numpad2'], down: ['ArrowDown', 'Digit8', 'Numpad8'],
-  left: ['ArrowLeft', 'Digit4', 'Numpad4'], right: ['ArrowRight', 'Digit6', 'Numpad6'],
-  undo: ['KeyQ', 'Backspace', 'F1'], reset: ['KeyW', 'F2'], ok: ['Enter', 'Digit5', 'Numpad5'],
-  sound: ['NumpadMultiply'], exit: ['Escape'],
-};
-let BIND = loadBindings();
-function loadBindings() {
-  const saved = store.get('bindings', null), b = {};
-  for (const [a] of ACTIONS) b[a] = Array.isArray(saved?.[a]) ? saved[a] : DEFAULT_BINDINGS[a].slice();
-  return b;
-}
-function keyName(code) {
-  const arrows = {ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→'};
-  if (arrows[code]) return arrows[code];
-  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
-  if (/^Digit\d$/.test(code)) return code.slice(5);
-  if (/^Numpad\d$/.test(code)) return 'Num' + code.slice(6);
-  if (code === 'NumpadMultiply') return 'Num*';
-  return code.replace(/^Numpad/, 'Num');
-}
-function bind(action, code) {
-  for (const a in BIND) BIND[a] = BIND[a].filter(c => c !== code);   // a key drives one action only
-  BIND[action] = [code];
-  store.set('bindings', BIND);
-}
 
 const cv = document.getElementById('lcd'), cx = cv.getContext('2d');
 const overlay = document.getElementById('overlay');
@@ -312,11 +281,6 @@ function render() {
   } else if (G.screen === 'origText') {
     overlay.innerHTML = `<div class="hdr">${esc(G.textTitle)}</div><div class="body">${esc(G.text)}</div>`;
     overlay.classList.add('on'); setSoft('', TXT.back);
-  } else if (G.screen === 'controls') {
-    const rows = ACTIONS.map(([a, label]) => `${label}: ${G.capture === a ? 'press a key…' : (BIND[a].map(keyName).join(' ') || '—')}`)
-      .concat(['Restore defaults', 'Back']);
-    overlay.innerHTML = '<div class="hdr">Controls</div><ul class="menu small body">' + rows.map((t, i) => `<li class="${i === G.ctrlSel ? 'sel' : ''}">${t}</li>`).join('') + '</ul>';
-    overlay.classList.add('on'); setSoft('Back', G.capture ? 'Cancel' : 'Change');
   }
   document.getElementById('status').textContent = G.screen === 'game'
     ? `Level ${G.level + 1}/${DATA.levels.length} · steps ${G.steps}/${MAX_STEPS} · score ${G.total} · best ${G.high} · sound ${G.sound ? 'on' : 'off'}${G.rotate ? ' · rotate map' : ''}`
@@ -332,7 +296,7 @@ function menuItems() {
     {label: 'Start', act: () => { G.origin = 'menu'; newGame(); }},
     {label: `Level: ◀ ${G.menuLevel + 1} / ${DATA.levels.length} ▶`, level: true,
      act: () => { G.origin = 'menu'; store.set('level', G.menuLevel); newGame(); }},
-    {label: 'Controls', act: () => { G.screen = 'controls'; G.ctrlSel = 0; G.capture = null; render(); }},
+    {label: 'Keyboard keys', act: () => PhoneKeys.open()},             // global mapping, port/keys.js
     {label: 'Original menu', act: () => { G.screen = 'orig'; render(); }},
     {label: 'Rotate map: ' + (G.rotate ? 'on' : 'off'), act: () => { G.rotate = !G.rotate; store.set('rotate', G.rotate); render(); }},
     {label: 'Best score', act: () => showText('Best score', 'Best score: ' + store.get('high', 0))},
@@ -392,18 +356,6 @@ function press(k) {
     else if (['RSK', 'RED', 'LSK', 'OK'].includes(k)) { G.screen = 'origOpts'; render(); }
     return;
   }
-  if (G.screen === 'controls') {
-    const nrows = ACTIONS.length + 2;
-    if (k === '2') G.ctrlSel = (G.ctrlSel + nrows - 1) % nrows;
-    else if (k === '8') G.ctrlSel = (G.ctrlSel + 1) % nrows;
-    else if (k === 'LSK' || k === 'RED') { G.screen = 'menu'; }
-    else if (k === 'OK' || k === 'RSK' || k === '5') {
-      if (G.ctrlSel < ACTIONS.length) G.capture = ACTIONS[G.ctrlSel][0];
-      else if (G.ctrlSel === ACTIONS.length) { BIND = loadBindingsDefaults(); store.set('bindings', BIND); }
-      else G.screen = 'menu';
-    }
-    render(); return;
-  }
   if (G.screen === 'text') {
     if (k === '2' || k === '8') overlay.scrollBy(0, (k === '8' ? 1 : -1) * overlay.clientHeight / 3);
     else if (k === 'RSK' || k === 'OK' || k === 'RED' || k === 'LSK') { G.screen = 'menu'; render(); }
@@ -417,19 +369,11 @@ function press(k) {
   else if (DIRS[k]) move(k);
 }
 document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => press(b.dataset.k)));
-function loadBindingsDefaults() { const b = {}; for (const [a] of ACTIONS) b[a] = DEFAULT_BINDINGS[a].slice(); return b; }
-addEventListener('keydown', e => {
-  if (G.screen === 'origLevel' && /^\d$/.test(e.key)) { e.preventDefault(); press(e.key); return; }   // typed digits
-  if (G.capture) {                                        // Controls screen waiting for a key
-    e.preventDefault();
-    if (e.code !== 'Escape' || G.capture === 'exit') bind(G.capture, e.code);   // Esc cancels (unless binding Exit)
-    G.capture = null; render(); return;
-  }
-  let k = null;
-  for (const [a, , phoneKey] of ACTIONS) if (BIND[a].includes(e.code)) { k = phoneKey; break; }
-  if (!k && e.key === '*' && !Object.values(BIND).some(l => l.includes(e.code))) k = '*';   // typed '*' on any layout
-  if (k) { e.preventDefault(); press(k); }
-});
+// keyboard -> phone keys: port/keys.js (one mapping shared by every page)
+PhoneKeys.listen({down: (k, e) => {
+  if (G.screen === 'origLevel' && /^\d$/.test(e.key)) { press(e.key); return; }   // typed digits in the level field
+  press(k);
+}});
 
 /* ---- data loading -------------------------------------------------------------------------- */
 function useData(levels, tiles, source) {
