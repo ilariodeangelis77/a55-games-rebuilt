@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Box Pusher Port</title>
+<style>
+  :root {
+    --bg: #e9e7e1; --ink: #1d1d1b; --muted: #6b6a66; --body: #2b2d31; --body-hi: #3a3d42;
+    --lcd: #c9d3b4; --lcd-ink: #1f2a17; --key: #4a4e55; --key-ink: #f1f1ee; --accent: #7aa35c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #17181a; --ink: #e8e6e1; --muted: #9a988f; --body: #2b2d31; --body-hi: #3a3d42; }
+  }
+  :root[data-theme="dark"] { --bg: #17181a; --ink: #e8e6e1; --muted: #9a988f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, sans-serif;
+         display: flex; flex-direction: column; align-items: center; padding: 16px; }
+  h1 { font-size: 15px; font-weight: 600; margin: 4px 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; margin: 0 0 12px; text-align: center; max-width: 520px; }
+  .phone { background: linear-gradient(var(--body-hi), var(--body)); border-radius: 28px; padding: 22px 18px 18px;
+           box-shadow: 0 10px 30px rgba(0,0,0,.25); width: min(100%, 560px); }
+  .lcd { position: relative; background: var(--lcd); border-radius: 6px; padding: 10px; box-shadow: inset 0 0 0 3px #9aa684; }
+  canvas { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; aspect-ratio: 101 / 64; }
+  .overlay { position: absolute; inset: 10px; display: none; flex-direction: column; justify-content: center;
+             align-items: center; text-align: center; color: var(--lcd-ink); background: var(--lcd);
+             font: 600 clamp(12px, 3.4vw, 17px)/1.35 ui-monospace, Consolas, monospace; white-space: pre-line; padding: 6px; }
+  .overlay.on { display: flex; }
+  .menu { list-style: none; padding: 0; margin: 0; width: 80%; }
+  .menu li { padding: 1px 6px; border-radius: 3px; }
+  .menu li.sel { background: var(--lcd-ink); color: var(--lcd); }
+  .soft { display: flex; justify-content: space-between; color: var(--lcd-ink); font: 600 12px ui-monospace, monospace;
+          padding: 4px 2px 0; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .keys .row2 { grid-column: span 3; display: flex; justify-content: space-between; gap: 8px; }
+  button { background: var(--key); color: var(--key-ink); border: 0; border-radius: 12px; padding: 10px 0; font: 600 15px system-ui;
+           cursor: pointer; touch-action: manipulation; }
+  button:active { filter: brightness(1.3); }
+  button.softk { flex: 1; font-size: 12px; }
+  button.red { background: #8f3b36; } button.green { background: #3d7a46; }
+  .status { margin-top: 12px; font-size: 12px; color: var(--muted); text-align: center; }
+  .data { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: center; }
+  .data label { color: var(--ink); text-decoration: underline; cursor: pointer; }
+  kbd { font: 11px ui-monospace, monospace; background: rgba(127,127,127,.2); padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>Box Pusher Port</h1>
+<p class="sub">An engine rebuilt from the decompiled phone firmware logic. It loads levels and tiles from
+<code>out/mtb/levels.json</code> + <code>tiles.json</code> (made by <code>scripts/extract/extract_mtb.py</code> from your own dump).
+Keys: <kbd>2 4 6 8</kbd>/arrows move, <kbd>Q</kbd> left soft (undo), <kbd>W</kbd> right soft (reset), <kbd>*</kbd> sound, <kbd>Esc</kbd> exit.</p>
+
+<div class="phone">
+  <div class="lcd">
+    <canvas id="lcd" width="101" height="64" aria-label="game screen"></canvas>
+    <div class="overlay" id="overlay"></div>
+    <div class="soft"><span id="softL"></span><span id="softR"></span></div>
+  </div>
+  <div class="keys">
+    <div class="row2">
+      <button class="softk" data-k="LSK">◤ Left soft</button>
+      <button class="softk green" data-k="OK">OK</button>
+      <button class="softk" data-k="RSK">Right soft ◥</button>
+    </div>
+    <button data-k="1">1</button><button data-k="2">2 ▲</button><button data-k="3">3</button>
+    <button data-k="4">◀ 4</button><button data-k="5">5</button><button data-k="6">6 ▶</button>
+    <button data-k="7">7</button><button data-k="8">8 ▼</button><button data-k="9">9</button>
+    <button data-k="*">*</button><button data-k="0">0</button><button class="red" data-k="RED">End</button>
+  </div>
+</div>
+<div class="status" id="status"></div>
+<div class="data" id="data"></div>
+
+<script>
+'use strict';
+/* ---------------------------------------------------------------------------------------------
+ * Tile codes and rules come from the decompiled firmware (see NOTES.md, "Game logic"):
+ *  100 box, 101 goal, 102 floor, 103 wall, 104 box on goal,
+ *  105 player (neutral / standing on a goal), 106 up, 107 down, 108 left, 109 right, 110 outside.
+ *  Grid is 8x8; cell (0,0) holds the level index after loading (drawn as the level number).
+ * ------------------------------------------------------------------------------------------- */
+const BOX = 100, GOAL = 101, FLOOR = 102, WALL = 103, BOXG = 104, PL = 105, UP = 106, DN = 107, LF = 108, RT = 109, OUT = 110;
+const TILE_PIC = {100: 2, 101: 4, 102: 5, 103: 1, 104: 3, 105: 6, 106: 7, 107: 8, 108: 9, 109: 10, 110: 0}; // FUN_cb28b4 table
+const MAX_STEPS = 200;           // FUN_cb3210: lose at 200, score += 200 - steps
+const ROTATE_EVERY = 50;         // "Rotate map" option: transpose every 50 steps
+
+/* Placeholder data (my own, used only when no extracted data is available) */
+const PLACEHOLDER = {
+  levels: [{index: 1, flag: 0, boxes: 2, grid: [
+    [110,103,103,103,103,103,103,110],
+    [110,103,102,102,102,102,103,110],
+    [110,103,102,100,101,102,103,110],
+    [110,103,105,100,101,102,103,110],
+    [110,103,102,102,102,102,103,110],
+    [110,103,103,103,103,103,103,110],
+    [110,110,110,110,110,110,110,110],
+    [110,110,110,110,110,110,110,110]]}],
+  tiles: null,
+};
+function placeholderTiles() {
+  const pats = [
+    ['..........','..........','..........','..........','..........','..........','..........','..........'], // blank
+    ['##########','#........#','#.######.#','#.#....#.#','#.#....#.#','#.######.#','#........#','##########'], // wall
+    ['..........','.########.','.#.####.#.','.##....##.','.##....##.','.#.####.#.','.########.','..........'], // box on goal
+    ['..........','.########.','.#......#.','.#......#.','.#......#.','.#......#.','.########.','..........'], // box
+    ['..........','..........','....##....','...#..#...','...#..#...','....##....','..........','..........'], // goal
+    ['..........','..........','..........','..........','..........','..........','..........','..........'], // floor
+  ];
+  const person = ['....##....','....##....','..######..','....##....','....##....','...#..#...','..#....#..','..........'];
+  const tiles = pats.map(p => ({w: 10, h: 8, bits: p.map(r => [...r].map(c => c === '#' ? 1 : 0))}));
+  for (let i = 0; i < 5; i++) tiles.push({w: 10, h: 8, bits: person.map(r => [...r].map(c => c === '#' ? 1 : 0))});
+  return tiles;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Persistent storage (the phone keeps level + highscore in EEPROM block "GamesData"; here we
+ * use localStorage, guarded because it can be unavailable).
+ * ------------------------------------------------------------------------------------------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('boxport.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('boxport.' + k, JSON.stringify(v)); } catch {} },
+};
+
+let DATA = null;          // {levels, tiles}
+let TILES = null;         // tile index -> ImageData-like bitmaps
+const G = {               // mirrors the firmware state struct at page 0x54
+  grid: null, backup: null, onGoal: 0, backupOnGoal: 0,
+  steps: 0, won: 0, active: 0, started: 0, undoOk: 0, nboxes: 0,
+  level: 0, total: 0, high: 0, sound: true, rotate: false, screen: 'menu', menuSel: 0, result: null,
+};
+
+const cv = document.getElementById('lcd'), cx = cv.getContext('2d');
+const overlay = document.getElementById('overlay');
+
+function lcdColors() {
+  const s = getComputedStyle(document.documentElement);
+  return {bg: s.getPropertyValue('--lcd').trim(), ink: s.getPropertyValue('--lcd-ink').trim()};
+}
+
+/* ---- level loading: FUN_cb1fae + FUN_cb265c ------------------------------------------------ */
+function loadLevel(idx) {
+  const L = DATA.levels[idx];
+  G.grid = L.grid.map(r => r.slice());   // levels.json already has flag-1 levels transposed
+  G.grid[0][0] = idx;                     // quirk: loader stores level index into cell (0,0)
+  G.nboxes = L.boxes;
+}
+function transpose(g) { return g.map((row, r) => row.map((_, c) => g[c][r])); }
+function findPlayer() {
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (G.grid[r][c] >= PL && G.grid[r][c] <= RT) return [r, c];
+  return null;
+}
+
+/* ---- new game: FUN_cb2b2a / FUN_cb2a78 ------------------------------------------------------ */
+function newGame() {
+  G.level = Math.min(store.get('level', 0), DATA.levels.length - 1);
+  G.high = store.get('high', 0); if (G.high > 0xff0) G.high = 0;   // FUN_cb5074 sanity checks
+  G.steps = 0; G.onGoal = 0; G.total = 0; G.won = 0; G.active = 1; G.started = 1; G.undoOk = 0;
+  loadLevel(G.level);
+  G.screen = 'game'; G.result = null;
+  render();
+}
+/* ---- reset (right soft key, code 4): FUN_cb2c7c ------------------------------------------- */
+function resetLevel() {
+  if (!G.started) return;
+  G.onGoal = 0; G.active = 1; loadLevel(G.level);
+  G.steps = 0; G.won = 0; G.undoOk = 0; G.result = null;
+  render();
+}
+/* ---- one-step undo (left soft key, code 1): FUN_cb3130 / FUN_cb3194 ------------------------ */
+function saveUndo() { G.backup = G.grid.map(r => r.slice()); G.backupOnGoal = G.onGoal; G.undoOk = 1; }
+function undo() {
+  if (!G.active || !G.started || !G.undoOk) return;
+  G.grid = G.backup.map(r => r.slice()); G.steps -= 1; G.onGoal = G.backupOnGoal; G.undoOk = 0;
+  render();
+}
+
+/* ---- movement: FUN_cb3262 cases 0x32/0x34/0x36/0x38 ---------------------------------------- */
+const DIRS = {'2': [-1, 0, UP], '8': [1, 0, DN], '4': [0, -1, LF], '6': [0, 1, RT]};
+function move(key) {
+  if (!G.active) return;
+  const p = findPlayer(); if (!p) return;
+  const [dr, dc, face] = DIRS[key];
+  const [r, c] = p, r1 = r + dr, c1 = c + dc, r2 = r + 2 * dr, c2 = c + 2 * dc;
+  const t1 = G.grid[r1]?.[c1], t2 = G.grid[r2]?.[c2];
+  let newPlayer, newBeyond = null, nowOnGoal, boxOntoGoal = false;
+  if (t1 === BOX || t1 === BOXG) {
+    if (t2 !== FLOOR && t2 !== GOAL) return;            // blocked: wall, box, outside
+    newBeyond = t2 === GOAL ? BOXG : BOX; boxOntoGoal = t2 === GOAL;
+    newPlayer = t1 === BOXG ? PL : face; nowOnGoal = t1 === BOXG ? 1 : 0;
+  } else if (t1 === FLOOR) { newPlayer = face; nowOnGoal = 0; }
+  else if (t1 === GOAL) { newPlayer = PL; nowOnGoal = 1; }
+  else return;
+  saveUndo();
+  G.grid[r1][c1] = newPlayer;
+  if (newBeyond !== null) G.grid[r2][c2] = newBeyond;
+  G.grid[r][c] = G.onGoal ? GOAL : FLOOR;                 // restore what the player stood on
+  G.onGoal = nowOnGoal;
+  afterMove(boxOntoGoal);
+}
+
+/* ---- after each move: FUN_cb3210 ---------------------------------------------------------- */
+function afterMove(boxOntoGoal) {
+  G.steps += 1;
+  if (G.rotate && G.steps % ROTATE_EVERY === 0) G.grid = transpose(G.grid);
+  let onGoals = 0;
+  for (const row of G.grid) for (const t of row) if (t === BOXG) onGoals++;
+  if (onGoals === G.nboxes) G.won = 1;
+  if (boxOntoGoal && G.sound) beep();                    // FUN_a82494(0x25) when a box lands on a goal
+  if (G.won || G.steps === MAX_STEPS) {
+    G.total += MAX_STEPS - G.steps;
+    if (G.total > G.high) { G.high = G.total; store.set('high', G.high); }
+    if (G.won) { G.level = G.level < DATA.levels.length - 1 ? G.level + 1 : 0; store.set('level', G.level); }
+    G.active = 0;                                          // FUN_cb2e18 clears the "active" flag
+    G.result = (G.won ? 'You have won!' : 'You have lost!') + '\nYour score: ' + G.total;
+  }
+  render();
+}
+
+let actx = null;
+function beep() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'square'; o.frequency.value = 1320; g.gain.value = 0.05;
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.08);
+  } catch {}
+}
+
+/* ---- rendering ---------------------------------------------------------------------------- */
+const DIGITS = {0:'111101101101111',1:'010110010010111',2:'111001111100111',3:'111001111001111',4:'101101111001001',
+  5:'111100111001111',6:'111100111101111',7:'111001010010010',8:'111101111101111',9:'111101111001111'};
+function render() {
+  const {bg, ink} = lcdColors();
+  cx.fillStyle = bg; cx.fillRect(0, 0, 101, 64); cx.fillStyle = ink;
+  overlay.classList.remove('on');
+  if (G.screen === 'game' && G.grid) {
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      if (r === 0 && c === 0) continue;
+      const t = TILES[TILE_PIC[G.grid[r][c]] ?? 0];
+      for (let y = 0; y < 8; y++) for (let x = 0; x < 10; x++) if (t.bits[y][x]) cx.fillRect(c * 10 + x, r * 8 + y, 1, 1);
+    }
+    String(G.grid[0][0] + 1).split('').forEach((d, i) => {
+      [...DIGITS[d]].forEach((b, k) => { if (b === '1') cx.fillRect(1 + i * 4 + k % 3, 1 + Math.floor(k / 3), 1, 1); });
+    });
+    if (G.result) { overlay.textContent = G.result; overlay.classList.add('on'); }
+    setSoft(G.active && G.undoOk ? 'Undo' : '', G.active ? 'Reset' : 'Next');
+  } else if (G.screen === 'menu') {
+    const items = menuItems();
+    overlay.innerHTML = '<ul class="menu">' + items.map((it, i) => `<li class="${i === G.menuSel ? 'sel' : ''}">${it.label}</li>`).join('') + '</ul>';
+    overlay.classList.add('on'); setSoft('', 'Select');
+  } else if (G.screen === 'text') {
+    overlay.textContent = G.text; overlay.classList.add('on'); setSoft('', 'Back');
+  }
+  document.getElementById('status').textContent = G.screen === 'game'
+    ? `Level ${G.level + 1}/${DATA.levels.length} · steps ${G.steps}/${MAX_STEPS} · score ${G.total} · best ${G.high} · sound ${G.sound ? 'on' : 'off'}${G.rotate ? ' · rotate map' : ''}`
+    : `Best score ${store.get('high', 0)} · saved level ${store.get('level', 0) + 1}`;
+}
+function setSoft(l, r) { document.getElementById('softL').textContent = l; document.getElementById('softR').textContent = r; }
+
+function menuItems() {
+  return [
+    {label: 'Start', act: newGame},
+    {label: 'Rotate map: ' + (G.rotate ? 'on' : 'off'), act: () => { G.rotate = !G.rotate; store.set('rotate', G.rotate); render(); }},
+    {label: 'Best score', act: () => showText('Best score: ' + store.get('high', 0))},
+    {label: 'Instructions', act: () => showText('Push all boxes onto\nthe targets in as\nfew steps as possible.\n200 steps max per level.\nLeft soft: undo 1 step.\nRight soft: reset.')},
+  ];
+}
+function showText(t) { G.screen = 'text'; G.text = t; render(); }
+
+/* ---- input (phone key codes: soft-left 1, soft-right 4, red 0x0C, '*' 0x2A, digits ASCII) -- */
+function press(k) {
+  if (G.screen === 'menu') {
+    const items = menuItems();
+    if (k === '2') G.menuSel = (G.menuSel + items.length - 1) % items.length;
+    else if (k === '8') G.menuSel = (G.menuSel + 1) % items.length;
+    else if (k === 'OK' || k === 'RSK' || k === '5') { items[G.menuSel].act(); return; }
+    render(); return;
+  }
+  if (G.screen === 'text') { if (k === 'RSK' || k === 'OK' || k === 'RED' || k === 'LSK') { G.screen = 'menu'; render(); } return; }
+  if (k === 'RED') { G.screen = 'menu'; G.onGoal = 0; G.active = 0; render(); return; }  // 0x0C: exit
+  if (k === 'RSK') { resetLevel(); return; }
+  if (!G.active) return;                                  // inactive: only red / right soft accepted
+  if (k === '*') { G.sound = !G.sound; store.set('sound', G.sound); render(); return; }   // 0x2A: sound toggle
+  if (k === 'LSK') undo();
+  else if (DIRS[k]) move(k);
+}
+document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => press(b.dataset.k)));
+const KEYMAP = {ArrowUp: '2', ArrowDown: '8', ArrowLeft: '4', ArrowRight: '6', Numpad2: '2', Numpad4: '4', Numpad6: '6', Numpad8: '8',
+  Digit2: '2', Digit4: '4', Digit6: '6', Digit8: '8', Digit5: '5', Numpad5: '5', KeyQ: 'LSK', KeyW: 'RSK', Escape: 'RED', Enter: 'OK',
+  NumpadMultiply: '*', Backspace: 'LSK'};
+addEventListener('keydown', e => {
+  const k = e.key === '*' ? '*' : KEYMAP[e.code];
+  if (k) { e.preventDefault(); press(k); }
+});
+
+/* ---- data loading -------------------------------------------------------------------------- */
+function useData(levels, tiles, source) {
+  DATA = {levels, tiles}; TILES = tiles;
+  document.getElementById('data').innerHTML = `Data: ${source} (${levels.length} level${levels.length > 1 ? 's' : ''}). ` +
+    `<label for="pick">Load levels.json + tiles.json…</label><input id="pick" type="file" multiple accept=".json" hidden>`;
+  document.getElementById('pick').addEventListener('change', async e => {
+    const files = [...e.target.files]; let lv = null, tl = null;
+    for (const f of files) { const j = JSON.parse(await f.text()); if (Array.isArray(j) && j[0]?.grid) lv = j; else if (Array.isArray(j) && j[0]?.bits) tl = j; }
+    if (lv && tl) { useData(lv, tl, files.map(f => f.name).join(' + ')); G.screen = 'menu'; render(); }
+  });
+  render();
+}
+(async () => {
+  G.sound = store.get('sound', true); G.rotate = store.get('rotate', false);
+  try {
+    const base = new URL('../out/mtb/', location.href);
+    const [lv, tl] = await Promise.all([fetch(new URL('levels.json', base)).then(r => r.json()), fetch(new URL('tiles.json', base)).then(r => r.json())]);
+    useData(lv, tl, 'out/mtb (extracted)');
+  } catch {
+    useData(PLACEHOLDER.levels, placeholderTiles(), 'built-in placeholder');
+  }
+})();
+</script>
+</body>
+</html>

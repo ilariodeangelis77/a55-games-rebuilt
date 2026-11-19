@@ -9,11 +9,18 @@ indirect evidence), **guess** (hypothesis that hasn't been tested yet).
 | Step | State |
 |---|---|
 | 0. Toolchain | Ghidra 12.2 + C166 module, see below |
-| 1. Load firmware | **blocked**: no dump in `firmware/` yet |
-| 2. Locate game | not started |
-| 3. Extract assets | not started |
-| 4. Decompile logic | not started |
-| 5. Reimplementation | not started |
+| 1. Load firmware | **done**: A55 V9 fullflash, base 0x800000 (confirmed) |
+| 2. Locate game | **done**: text decoder, Games menu, entry 0xCB5074, module 0xCB1600–0xCB5A00 |
+| 3. Extract assets | **done**: 14 levels (XSB/JSON) + 11 tiles (PNG/JSON), `scripts/extract/extract_mtb.py` |
+| 4. Decompile logic | **done**: `docs/move_the_box_logic.c` (pseudo-C), section "Game logic" below |
+| 5. Reimplementation | **done**: `port/index.html` (engine; loads the extracted data at runtime) |
+
+Reproduce everything from the dump:
+```
+python -I scripts/extract/extract_mtb.py firmware/upstream_ff/A55_LG7_V9_00800000.FLS out/mtb
+python -I scripts/extract/render_levels.py out/mtb          # contact sheet of all levels
+python -m http.server 8765   # then open http://localhost:8765/port/index.html
+```
 
 ## Target
 
@@ -184,3 +191,90 @@ _tbd_
 ## Open questions
 
 - Are UI strings stored inline or referenced by ID through a language pack?
+
+## Text pack decoder (confirmed: decodes all strings)
+`scripts/extract/textpack.py` reimplements `FUN_d4850e` (hand-written asm):
+- Text API: `FUN_d4a316(id)` → buffer at page 0x54:0x3640. `FUN_d4a242` dispatches by ID:
+  0–0xBE2 language pack, 0xBE3–0xE8A plain ASCII via table at page 0x353, ≥0x1388 other.
+- String number n = `id × header[0x0E] (=9) + slot`; slot = byte `header[0x08] + lang`.
+- 16 KB block page = 0x368 + k, chosen by threshold table at 0xDA003C. Index table
+  `header[0x12]` (0xDA0140) points to every 8th string; skip `n & 7` length-prefixed records.
+- Record `[len][codes…]`. Language descriptor (14 bytes at `header[0x0A] + lang×14`):
+  `{t1, n1, t2, n2, t3, n3, t4}`: code < n1 → 1 char from t1, < n2 → 2 chars from t2,
+  < n3 → 3 chars, else 4 chars. Output is 8-bit; 0x95 = format prefix, 0x8A = newline.
+- LG7 language 0 = English.
+
+Game text IDs: 0x347/0x348 "Move the box", 0x3E4 help, 0xA98–0xA9A help pages, 0x9F9
+"Rotate map", 0x3D8 "You have won!\nYour score:", 0x3E2 "You have lost!…", 0x33E Highscore.
+
+## Game location (all confirmed)
+- Games menu items: table at 0xD1A168, 18-byte records `[0,0,title,title2,0,0,0,3,X]`. Handler
+  far pointers at 0xD1A1BE → `JMPS` trampolines at 0xD1A0CA…:
+  Stack Attack 0xCAF8F8, Balloon Shooter 0xCA8E38, **Move the box 0xCB5074**, Wacko 0xD53C96.
+- The module is reached only through pointers and jump tables, so Ghidra needed help:
+  `SeedFromList.java` (entries), `SweepRegion.java` (linear sweep 0xCA0000–0xCC0000).
+
+| Address | Name (mine) | Role |
+|---|---|---|
+| 0xCB5074 | mtb_menu_entry | clamps saved level / highscore, opens start screen |
+| 0xCB503A | mtb_open_start_screen | creates UI from descriptor 0xCAFFC6 (callbacks 0xCB4FA4/0xCB4FD0) |
+| 0xCB2B2A | mtb_game_create | allocates state (0x114 bytes), reads saved level/highscore/option |
+| 0xCB2A78 | mtb_game_start | resets session, loads level, draws |
+| 0xCB1FAE | mtb_load_level | level loader (35-case pair switch, jump table 0xCB4F48) |
+| 0xCB1FAA | mtb_level_count | returns 14 |
+| 0xCB265C | mtb_transpose | diagonal transpose of the 8×8 grid |
+| 0xCB26DA | mtb_place_player | finds player tile, positions sprite |
+| 0xCB3262 | mtb_on_key | key handler (moves, undo, reset, exit, sound) |
+| 0xCB3130 | mtb_save_undo | copies grid + on_goal to backup |
+| 0xCB3194 | mtb_undo | restores backup, steps-- |
+| 0xCB2C7C | mtb_reset | reload current level |
+| 0xCB3210 | mtb_after_move | step count, rotate option, win/lose, scoring, progression |
+| 0xCB2750 | mtb_update_highscore | |
+| 0xCB2E18 | mtb_show_result | won/lost text + score |
+| 0xCB28B4 | mtb_draw_cell | tile → picture via jump table 0xCB4F8E (default: level number) |
+| 0xCB276C | mtb_draw_level_number | |
+| 0xCB4B40 / 0xCB49EA | redraw all / redraw changed cells | |
+| 0xD1A77E/0xD1A796 | get/set highscore (persistent) | |
+| 0xD1A78A/0xD1A7A2 | get/set level (persistent) | |
+
+## Assets (confirmed)
+- **Levels:** 0xCB4C0C, 14 × 0x26 bytes: `u16 flag, u8 nboxes, u8 prow, u8 pcol, 32 map
+  bytes`. Each map byte (0x41–0x63) = 2 cells via the loader switch. The table was traced
+  mechanically (`trace_loader_cases.py`). flag≠0 → transposed on load (levels 9–14).
+  All 14 levels: boxes = goals = nboxes, exactly one player. Solvability check skipped on
+  request (solver is in `scripts/extract/solve_xsb.py`; it solved level 1 in 31 moves).
+- **Tiles:** 11 picture descriptors at 0xCB4ED0 `{u8 w=10, u8 h=8, u16 1, u16 off, u16 page}`.
+  Bitmaps are rows of big-endian u16, top 10 bits, 1 = black.
+  Tile code → picture: 100→2 box, 101→4 goal, 102→5 floor, 103→1 wall, 104→3 box on goal,
+  105→6 player, 106–109 → 7–10 player up/down/left/right, 110→0 blank.
+- **Screen:** 8×8 cells of 10×8 px = 80×64 at the left. The UI code reserves 101−17 px of
+  width for the board and splits it into 8 columns.
+
+## Game logic: see `docs/move_the_box_logic.c`
+Quirks vs. standard Sokoban:
+- **200-move limit per level**: reaching it = "You have lost!".
+- **Score per level = 200 − moves**. The session score accumulates across levels and is what
+  becomes the highscore.
+- **One-step undo** (left soft), which refunds the move. Reset (right soft) keeps the session
+  score. After a win, the level counter is already advanced, so "reset" starts the next level.
+- Levels 9–14 are stored transposed. The optional **"Rotate map"** transposes the board every
+  50 moves.
+- Cell (0,0) holds the level index and is drawn as the level number.
+- After level 14 it wraps to level 1. A beep (sound 0x25) plays when a box lands on a goal.
+- Key codes 0x01/0x04/0x0C for left soft/right soft/red are **likely** (standard x55 codes).
+  The help text confirms the left/right soft roles.
+- **Saved data:** the phone stores level and highscore persistently. The EEPROM block 5062
+  "GamesData" is the **likely** backing store (not traced through FUN_d1a77e…).
+
+## Reimplementation: `port/index.html`
+Single HTML/JS file that implements the logic above, at 101×64 scaled. It loads
+`out/mtb/levels.json` + `tiles.json` (your extraction) or files picked by hand. Without
+data it runs one placeholder level with placeholder tiles. The original levels/art are never
+embedded in the repo, consistent with the no-redistribution rule.
+Tested in the browser:
+- level 1 solved in 31 moves → score 169, highscore saved, level advanced
+- undo once only
+- moves blocked after win
+- right soft starts the next level
+- 200 moves → lost, +0
+- rotate map transposes at move 50
