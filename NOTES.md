@@ -278,3 +278,14 @@ Tested in the browser:
 - right soft starts the next level
 - 200 moves → lost, +0
 - rotate map transposes at move 50
+
+### Port-only additions (not in the original firmware)
+- **Level selection:** menu item `Level: ◀ n / 14 ▶` (keys 4/6 or the bound Left/Right)
+  starts any level. The original only resumes from the saved level.
+- **Control remapping:** a `Controls` screen rebinds each action (up, down, left, right,
+  undo, reset, OK, sound, exit) to any keyboard key, saved in localStorage
+  (`boxport.bindings`).
+  - A key drives one action only: binding it elsewhere removes it from its old action.
+  - `Esc` cancels a pending rebind.
+  - `Restore defaults` resets all bindings.
+  - The on-screen phone keys are unaffected.
