@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balloon Port</title>
+<style>
+  :root {
+    --bg: #e9e7e1; --ink: #1d1d1b; --muted: #6b6a66; --body: #2b2d31; --body-hi: #3a3d42;
+    --lcd: #c9d3b4; --lcd-ink: #1f2a17; --key: #4a4e55; --key-ink: #f1f1ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #17181a; --ink: #e8e6e1; --muted: #9a988f; }
+  }
+  :root[data-theme="dark"] { --bg: #17181a; --ink: #e8e6e1; --muted: #9a988f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, sans-serif;
+         display: flex; flex-direction: column; align-items: center; padding: 16px; }
+  h1 { font-size: 15px; font-weight: 600; margin: 4px 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; margin: 0 0 12px; text-align: center; max-width: 520px; }
+  .phone { background: linear-gradient(var(--body-hi), var(--body)); border-radius: 28px; padding: 22px 18px 18px;
+           box-shadow: 0 10px 30px rgba(0,0,0,.25); width: min(100%, 560px); }
+  .lcd { background: var(--lcd); border-radius: 6px; padding: 10px; box-shadow: inset 0 0 0 3px #9aa684; }
+  .screen { position: relative; }
+  canvas { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; aspect-ratio: 101 / 64; }
+  .overlay { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: safe center; overflow-y: auto;
+             align-items: center; text-align: center; color: var(--lcd-ink); background: var(--lcd);
+             font: 600 clamp(12px, 3.4vw, 17px)/1.35 ui-monospace, Consolas, monospace; white-space: pre-line; padding: 6px; }
+  .overlay.on { display: flex; }
+  .overlay.box { background: transparent; }
+  .scorebox { background: var(--lcd); border: 2px solid var(--lcd-ink); box-shadow: 3px 3px 0 var(--lcd-ink); padding: 2px 10px; }
+  .scorebox.blink { animation: blink .6s steps(2) infinite; }
+  @keyframes blink { 50% { visibility: hidden; } }
+  .hdr { position: sticky; top: 0; align-self: stretch; margin-bottom: auto; background: var(--lcd-ink); color: var(--lcd);
+         font-size: clamp(10px, 2.8vw, 14px); padding: 1px 6px; text-align: center; z-index: 1; }
+  .body { width: 100%; margin-bottom: auto; padding: 4px 0; }
+  .menu { list-style: none; padding: 0; margin: 0; width: 80%; }
+  .menu li { padding: 1px 6px; border-radius: 3px; }
+  .menu li.sel { background: var(--lcd-ink); color: var(--lcd); }
+  .field { display: inline-block; min-width: 3ch; border-bottom: 2px solid var(--lcd-ink); margin-top: 6px; }
+  .soft { display: flex; justify-content: space-between; color: var(--lcd-ink); font: 600 12px ui-monospace, monospace; padding: 4px 2px 0; min-height: 1.4em; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .keys .row2 { grid-column: span 3; display: flex; justify-content: space-between; gap: 8px; }
+  button { background: var(--key); color: var(--key-ink); border: 0; border-radius: 12px; padding: 10px 0; font: 600 15px system-ui;
+           cursor: pointer; touch-action: manipulation; user-select: none; }
+  button:active { filter: brightness(1.3); }
+  button.softk { flex: 1; font-size: 12px; }
+  button.red { background: #8f3b36; } button.green { background: #3d7a46; }
+  .status, .data { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: center; }
+  kbd { font: 11px ui-monospace, monospace; background: rgba(127,127,127,.2); padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>Balloon Port</h1>
+<p class="sub">An engine rebuilt from the decompiled phone firmware. It loads sprites, levels, the start picture and texts from
+<code>out/balloon/</code> (made by <code>scripts/extract/extract_balloon.py</code> from your own dump).
+Hold <kbd>1</kbd>–<kbd>9</kbd> (or arrows / <kbd>Q W E A D Z X C</kbd>) to aim, <kbd>5</kbd>/<kbd>S</kbd>/<kbd>Space</kbd> shoot,
+<kbd>0</kbd> pause + status, <kbd>Shift</kbd> = fast aim, <kbd>*</kbd> sound, <kbd>F1</kbd>/<kbd>F2</kbd> soft keys, <kbd>Esc</kbd> end.</p>
+
+<div class="phone">
+  <div class="lcd">
+    <div class="screen">
+      <canvas id="lcd" width="101" height="64" aria-label="game screen"></canvas>
+      <div class="overlay" id="overlay"></div>
+    </div>
+    <div class="soft"><span id="softL"></span><span id="softR"></span></div>
+  </div>
+  <div class="keys">
+    <div class="row2">
+      <button class="softk" data-k="LSK">◤ Left soft</button>
+      <button class="softk green" data-k="OK">OK</button>
+      <button class="softk" data-k="RSK">Right soft ◥</button>
+    </div>
+    <button data-k="1">1 ↖</button><button data-k="2">2 ▲</button><button data-k="3">3 ↗</button>
+    <button data-k="4">◀ 4</button><button data-k="5">5 ●</button><button data-k="6">6 ▶</button>
+    <button data-k="7">7 ↙</button><button data-k="8">8 ▼</button><button data-k="9">9 ↘</button>
+    <button data-k="*">*</button><button data-k="0">0 ❚❚</button><button class="red" data-k="RED">End</button>
+  </div>
+</div>
+<div class="status" id="status"></div>
+<div class="data" id="data"></div>
+
+<script>
+'use strict';
+/* ---------------------------------------------------------------------------------------------
+ * Rules from the decompiled firmware (NOTES.md, "Balloon Shooter"): FUN_cac3c0 start, FUN_cac9ba
+ * tick (50 ms), FUN_cabc0e cleanup, FUN_caba8c move/animate, FUN_cab6ac spawn, FUN_cac016 shoot,
+ * FUN_cabd42 level-up/HUD, FUN_cacbc6 game over, FUN_cac508 keys.
+ * Object kinds: low nibble 0/1/2 balloon size, 3/4/5 popping, 6 crosshair, 7 banner,
+ *               9 dynamite, 0xA greeting card, 0xB string; high nibble 1..4 = balloon design.
+ * ------------------------------------------------------------------------------------------- */
+const TICK_MS = 50;
+let TXT = { title: 'Balloons', start: 'Start', options: 'Options', menu: ['Start', 'Level', 'Highscore', 'Instructions'],
+  points: '%d points', back: 'Back',
+  instructions: ['Pop the balloons before\nthey reach the top.\nAim with 1-9,\nshoot with 5.\nDynamite pops all.\nCards give a life.'] };
+let D = null, SPLASH = null;
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('balloonport.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('balloonport.' + k, JSON.stringify(v)); } catch {} },
+};
+const rand = n => Math.floor(Math.random() * n);   // FUN_ca3d32: (rand16 * n) >> 16, i.e. 0..n-1
+
+const G = { screen: 'start', sel: 0, text: '', textTitle: '', levelEntry: '', sound: true,
+            rows: null, cross: null, banner: null, cx: 50, cy: 32, vx: 0, vy: 0, mul: 1, held: null,
+            score: 0, lives: 5, lvl: 1, start: 0, counter: 0, paused: false, over: false, newRecord: false,
+            pending: 0, handle: null, msgUntil: 0, msg: '' };
+
+const cv = document.getElementById('lcd'), cx = cv.getContext('2d');
+const overlay = document.getElementById('overlay');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const fmt = (s, ...v) => { let i = 0; return s.replace(/%d/g, () => String(v[i++] ?? '')); };
+const lev = i => D.levels[Math.max(0, Math.min(D.levels.length - 1, i))];
+
+/* ---- objects -------------------------------------------------------------------------------- */
+function make(t, x, y) { return {x, y, dx: t.dx, dy: t.dy, nframes: t.nframes, frame: t.frame, kind: t.kind, speed: t.speed, frames: t.frames}; }
+const low = o => o.kind & 0xF;
+function box(o) { const f = o.frames[0], w = f.w, h = f.h;          // FUN_cabf0c: centre-anchored box
+  const l = o.x - ((w - 1) >> 1), t = o.y - ((h - 1) >> 1); return {l, t, w, h}; }
+function inside(o, px, py) { const b = box(o); return px >= b.l && py >= b.t && px < b.l + b.w && py < b.t + b.h; }
+
+/* ---- sounds: one pending slot with priorities (FUN_cab3b6) ---------------------------------- */
+function want(id) {
+  const p = G.pending;
+  if (id === 0x56) G.pending = id;
+  else if (id === 0x59) { if (p !== 0x56) G.pending = id; }
+  else if (id === 0x54) { if (p !== 0x56 && p !== 0x59) G.pending = id; }
+  else if (id === 0x55) { if (![0x56, 0x59, 0x54].includes(p)) G.pending = id; }
+  else if (id === 0x61) { if (p === 0 || p === 0x5e) G.pending = id; }
+  else if (id === 0x5e) { if (p === 0) G.pending = id; }
+}
+let actx = null;
+const FREQ = {0x56: 220, 0x59: 990, 0x54: 1320, 0x55: 160, 0x61: 660, 0x5e: 1760};
+function beep(id) {
+  if (!G.sound || !FREQ[id]) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'square'; o.frequency.value = FREQ[id]; g.gain.value = 0.04;
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + (id === 0x56 ? 0.4 : 0.07));
+  } catch {}
+}
+
+/* ---- game start: FUN_cac3c0 ----------------------------------------------------------------- */
+function startGame() {
+  if (!D) return;                                           // no extracted data: nothing to play with
+  G.rows = [[], [], []];
+  G.start = Math.min(13, Math.max(0, store.get('start', 0)));
+  G.lvl = G.start + 1; G.score = 0; G.lives = 5; G.counter = 0;
+  G.cx = 50; G.cy = 32; G.vx = 0; G.vy = 0; G.mul = 1; G.held = null;
+  G.paused = false; G.over = false; G.newRecord = false; G.pending = 0;
+  G.banner = make(D.banner, 0, -11);
+  G.cross = make(D.crosshair, 50, 40);
+  spawn(lev(G.lvl - 1).balloons);
+  levelCheck();
+  G.screen = 'game'; render();
+  clearTimeout(G.handle); G.handle = setTimeout(tick, TICK_MS);
+}
+/* ---- spawn: FUN_cab6ac ---------------------------------------------------------------------- */
+function spawn(n) {
+  for (let i = 0; i < n; i++) {
+    let row = 0;
+    while (row < 3 && G.rows[row].length > 4) row++;
+    if (row > 2) return;
+    const yoff = rand(10), x = rand(0x5C) + 4;
+    const L = lev(G.lvl - 1), V = Math.max(1, L.variety);
+    const idx = Math.floor((rand(V * 4) * 3) / V) + 3 - V;
+    const b = make(D.balloons[Math.max(0, Math.min(11, idx))], x, yoff + 71);
+    while (b.speed < L.min_speed) b.speed += 10;
+    G.rows[row].push(b);
+    const special = rand(8) === 1;
+    const k = special ? rand(2) : 2;                       // 0 dynamite, 1 card, 2 string
+    const size = low(b);
+    if (size <= 2) {
+      const a = make(D.attach[size][k], x, yoff + 71 + [8, 12, 16][size]);
+      a.speed = b.speed;
+      G.rows[row].push(a);
+    }
+  }
+}
+function remove(o) { for (const r of G.rows) { const i = r.indexOf(o); if (i >= 0) { r.splice(i, 1); return; } } }
+function pop(o) {                                           // FUN_cabf90
+  const k = low(o); if (k > 2) return false;
+  o.frames = D.pops[k]; o.dy = 0; o.frame = 0; o.kind += 3; o.speed = 10;
+  return true;
+}
+function removeAttachments(o) {
+  const h = o.frames[0].h;
+  for (const r of G.rows) for (const a of [...r])
+    if ([9, 10, 11].includes(low(a)) && a.x === o.x && o.y + h === a.y) remove(a);
+}
+
+/* ---- tick: FUN_cac9ba ------------------------------------------------------------------------ */
+function tick() {
+  if (G.screen !== 'game') return;
+  if (!G.paused) {
+    if (G.banner.y > -11) G.banner.y--;
+    cleanup(); move();
+    if (!G.over) levelCheck();
+    if (G.pending) { beep(G.pending); G.pending = 0; }
+  } else {
+    if (G.banner.y < 0) G.banner.y++;
+    levelCheck();
+  }
+  G.counter = (G.counter + 1) & 0x3FF;
+  render();
+  G.handle = setTimeout(tick, TICK_MS);
+}
+function cleanup() {                                        // FUN_cabc0e
+  let count = 0;
+  for (const r of G.rows) for (const o of [...r]) {
+    const k = low(o);
+    if (k < 3 || k > 5) {
+      if ((o.y < -10 && !G.over) || (o.y < -15 && G.over)) {
+        remove(o);
+        if (![9, 10, 11].includes(k)) {
+          if (G.lives !== 0 || G.over) { G.lives--; count++; }
+          else { gameOver(); return; }
+        }
+      }
+    } else if (o.nframes === o.frame + 1) { remove(o); count++; }
+  }
+  spawn(count);
+}
+function move() {                                           // FUN_caba8c
+  for (const r of G.rows) for (const o of r) {
+    const k = low(o);
+    if (k < 3 || k > 5) {
+      if (((G.counter * 50) & 0xFFFF) % o.speed !== 0) continue;
+      o.x += o.dx; o.y += o.dy;
+    }
+    o.frame = (o.frame + 1) % o.nframes;
+  }
+  G.cx += G.vx; G.cy += G.vy;
+  if (G.cx < 0) G.cx = 100; if (G.cx > 100) G.cx = 0;
+  if (G.cy < 0) G.cy = 63; if (G.cy > 63) G.cy = 0;
+  G.cross.x = G.cx; G.cross.y = G.cy;
+}
+function levelCheck() {                                     // FUN_cabd42
+  if (G.score < 0 || G.score > 9999) return;
+  if (G.score >= lev(G.lvl - G.start).threshold) {          // at most one level per call
+    const diff = lev(G.lvl).balloons - lev(G.lvl - 1).balloons;
+    if (diff < 0) { G.rows = [[], [], []]; spawn(lev(G.lvl).balloons); } else spawn(diff);
+    want(0x59); G.lvl++;
+  }
+  if (G.lvl > 14 || G.lives === 0) gameOver();
+}
+function gameOver() {                                       // FUN_cacbc6
+  if (G.over) return;
+  G.over = true; want(0x56);
+  if (G.score > store.get('high', 0)) { store.set('high', G.score); G.newRecord = true; }
+  G.cross = null;
+  const n = G.rows.reduce((s, r) => s + r.length, 0);
+  if (6 - (n >> 1) > 1) spawn(5 - (n >> 1));
+}
+/* ---- shoot: FUN_cac016 ---------------------------------------------------------------------- */
+function shoot() {
+  want(0x5e);
+  let hit = false, removed = 0;
+  for (const r of G.rows) for (const o of [...r]) {
+    if (!r.includes(o) || !inside(o, G.cx, G.cy)) continue;
+    const k = low(o);
+    if (k >= 3 && k <= 5) continue;
+    if (k === 0) { G.score += 30; hit = true; }
+    else if (k === 1) { G.score += 20; hit = true; }
+    else if (k === 2) { G.score += 10; hit = true; }
+    else if (k === 9) {                                     // dynamite: everything bursts
+      G.score += 40;
+      for (const rr of G.rows) for (const p of [...rr]) if (!pop(p)) remove(p);
+      want(0x55); return;
+    } else if (k === 10) { G.score += 40; if (G.lives < 5) G.lives++; want(0x54); }
+    else G.score += 10;                                     // 6,7,8 and string (0xB)
+    removeAttachments(o);
+    if ([0x10, 0x20, 0x30, 0x40].includes(o.kind & 0xF0)) { pop(o); want(0x61); }
+    else { remove(o); if (hit) removed++; }
+  }
+  if (!hit) G.score -= 10;
+  if (G.score < 0) G.score = 0;
+  spawn(removed);
+}
+
+/* ---- rendering ------------------------------------------------------------------------------ */
+function lcdColors() { const s = getComputedStyle(document.documentElement);
+  return {bg: s.getPropertyValue('--lcd').trim(), ink: s.getPropertyValue('--lcd-ink').trim()}; }
+let C = null;
+function px(x, y, on) { if (x < 0 || y < 0 || x > 100 || y > 63) return; cx.fillStyle = on ? C.ink : C.bg; cx.fillRect(x, y, 1, 1); }
+function sprite(f, l, t) { for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) {
+  const b = f.bits[y][x], m = f.mask ? f.mask[y][x] : 0; if (m && !b) continue; px(l + x, t + y, b); } }
+function drawObj(o) { const b = box(o); sprite(o.frames[o.frame] || o.frames[0], b.l, b.t); }
+function digits(n, w, x, y) { const s = String(Math.max(0, n)).padStart(w, '0').slice(-w);
+  [...s].forEach((c, i) => { const g = D.digits[+c];
+    for (let yy = 0; yy < 7; yy++) for (let xx = 0; xx < 5; xx++) px(x + i * 6 + xx, y + yy, !g.bits[yy][xx]); }); }
+function setSoft(l, r) { document.getElementById('softL').textContent = l; document.getElementById('softR').textContent = r;
+  queueMicrotask(() => overlay.querySelector('li.sel')?.scrollIntoView({block: 'nearest'})); }
+function render() {
+  C = lcdColors();
+  cx.fillStyle = C.bg; cx.fillRect(0, 0, 101, 64);
+  overlay.className = 'overlay'; overlay.innerHTML = '';
+  const show = html => { overlay.innerHTML = html; overlay.classList.add('on'); };
+  if (G.screen === 'start') {
+    if (SPLASH) sprite(SPLASH, 0, 0); else show(`<div class="hdr">${esc(TXT.title)}</div><div class="body">${esc(TXT.title)}</div>`);
+    setSoft(TXT.start, TXT.options);
+  } else if (G.screen === 'options') {
+    show(`<div class="hdr">${esc(TXT.options)}</div><ul class="menu body">` +
+      TXT.menu.map((t, i) => `<li class="${i === G.sel ? 'sel' : ''}">${esc(t)}</li>`).join('') + '</ul>');
+    setSoft('OK', TXT.back);
+  } else if (G.screen === 'level') {
+    show(`<div class="hdr">${esc(TXT.menu[1])}</div><div class="body">1 – 14<br><span class="field">${G.levelEntry || '&nbsp;'}</span></div>`);
+    setSoft('OK', G.levelEntry ? 'Clear' : TXT.back);
+  } else if (G.screen === 'text') {
+    show(`<div class="hdr">${esc(G.textTitle)}</div><div class="body">${esc(G.text)}</div>`);
+    setSoft('', TXT.back);
+  } else if (G.screen === 'game') {
+    for (const r of G.rows) for (const o of r) drawObj(o);
+    if (G.cross) drawObj(G.cross);
+    sprite(G.banner.frames[0], G.banner.x, G.banner.y);     // banner: top-left anchored
+    digits(G.lives, 1, 4, G.banner.y + 1);
+    digits(G.score, 4, 76, G.banner.y + 1);
+    if (G.paused) {
+      sprite(D.pause, 44, 27);
+      const p = (G.counter & 7) >> 2;
+      for (let i = 0; i < 2; i++) { const [dx, dy] = D.pause_dots[p * 2 + i]; px(44 + dx, 27 + dy, true); }
+    }
+    if (G.over) {
+      overlay.className = 'overlay on box';
+      overlay.innerHTML = `<span class="scorebox${G.newRecord ? ' blink' : ''}">${esc(fmt(TXT.points, G.score))}</span>`;
+    }
+    if (G.msg && performance.now() < G.msgUntil) show(esc(G.msg));
+    setSoft('', G.over ? TXT.back : '');
+  }
+  document.getElementById('status').textContent = G.screen === 'game'
+    ? `Level ${G.lvl} · score ${G.score} · lives ${G.lives}${G.paused ? ' · paused' : ''} · sound ${G.sound ? 'on' : 'off'}`
+    : `Highscore ${store.get('high', 0)} · start level ${store.get('start', 0) + 1}`;
+}
+
+/* ---- input: FUN_cac508 (press / release / long press) --------------------------------------- */
+const AIM = {1: [-1, -1], 2: [0, -1], 3: [1, -1], 4: [-1, 0], 6: [1, 0], 7: [-1, 1], 8: [0, 1], 9: [1, 1]};
+function aim(k, fast) { G.held = k; G.mul = fast ? 2 : 1; const [ax, ay] = AIM[k]; G.vx = ax * G.mul; G.vy = ay * G.mul; }
+function release(k) { if (G.held === k) { G.vx = 0; G.vy = 0; G.mul = 1; G.held = null; } }
+function press(k, fast) {
+  if (G.screen === 'start') {
+    if (k === 'LSK' || k === 'OK') startGame();
+    else if (k === 'RSK') { G.screen = 'options'; G.sel = 0; render(); }
+    return;
+  }
+  if (G.screen === 'options') {
+    if (k === '2') G.sel = (G.sel + 3) % 4;
+    else if (k === '8') G.sel = (G.sel + 1) % 4;
+    else if (k === 'RSK' || k === 'RED') G.screen = 'start';
+    else if (k === 'OK' || k === 'LSK' || k === '5') {
+      if (G.sel === 0) { startGame(); return; }
+      if (G.sel === 1) { G.screen = 'level'; G.levelEntry = ''; }
+      if (G.sel === 2) { G.screen = 'text'; G.textTitle = TXT.menu[2]; G.text = fmt(TXT.points, store.get('high', 0)); }
+      if (G.sel === 3) { G.screen = 'text'; G.textTitle = TXT.menu[3]; G.text = TXT.instructions.join('\n\n'); }
+    }
+    render(); return;
+  }
+  if (G.screen === 'level') {                               // start level 1..14 (number entry, likely)
+    if (/^\d$/.test(k)) { let s = G.levelEntry + k; if (s === '0') s = ''; if (s.length > 2) s = G.levelEntry; if (+s > 14) s = '14'; G.levelEntry = s; }
+    else if (k === 'OK' || k === 'LSK') { if (G.levelEntry) store.set('start', +G.levelEntry - 1); G.screen = 'options'; }
+    else if (k === 'RSK') { if (G.levelEntry) G.levelEntry = G.levelEntry.slice(0, -1); else G.screen = 'options'; }
+    else if (k === 'RED') G.screen = 'options';
+    render(); return;
+  }
+  if (G.screen === 'text') {
+    if (k === '2' || k === '8') overlay.scrollBy(0, (k === '8' ? 1 : -1) * overlay.clientHeight / 3);
+    else if (['RSK', 'RED', 'OK', 'LSK'].includes(k)) { G.screen = 'options'; render(); }
+    return;
+  }
+  if (G.screen !== 'game') return;
+  if (G.over) { if (k === 'RED' || k === 'RSK') { clearTimeout(G.handle); G.screen = 'start'; render(); } return; }
+  if (k === 'RED') { gameOver(); clearTimeout(G.handle); G.screen = 'start'; render(); return; }
+  if (G.paused && k !== '0') G.paused = false;               // any other key resumes
+  if (k === '0') { G.paused = !G.paused; render(); return; }
+  if (k === '*') { G.sound = !G.sound; store.set('sound', G.sound); G.msg = G.sound ? 'Sound on' : 'Sound off'; G.msgUntil = performance.now() + 1500; return; }
+  if (k === '5') { shoot(); return; }
+  if (AIM[k]) aim(+k, fast);
+}
+const KEYMAP = {Enter: 'OK', NumpadEnter: 'OK', Escape: 'RED', F1: 'LSK', F2: 'RSK', NumpadMultiply: '*', Space: '5', KeyS: '5',
+  ArrowUp: '2', ArrowDown: '8', ArrowLeft: '4', ArrowRight: '6', KeyQ: '1', KeyW: '2', KeyE: '3', KeyA: '4', KeyD: '6',
+  KeyZ: '7', KeyX: '8', KeyC: '9'};
+const keyOf = e => KEYMAP[e.code] || (/^(Digit|Numpad)[0-9]$/.test(e.code) ? e.code.slice(-1) : (e.key === '*' ? '*' : null));
+addEventListener('keydown', e => { const k = keyOf(e); if (!k) return; e.preventDefault();
+  if (e.repeat && AIM[k]) return; press(k, e.shiftKey); });
+addEventListener('keyup', e => { const k = keyOf(e); if (k && AIM[k]) release(+k); });
+document.querySelectorAll('[data-k]').forEach(b => {
+  const k = b.dataset.k;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); press(k, false); });
+  b.addEventListener('pointerup', () => { if (AIM[k]) release(+k); });
+  b.addEventListener('pointerleave', () => { if (AIM[k]) release(+k); });
+});
+
+(async () => {
+  G.sound = store.get('sound', true);
+  const base = new URL('../out/balloon/', location.href);
+  try {
+    D = await fetch(new URL('data.json', base)).then(r => r.json());
+    try { TXT = Object.assign({}, TXT, await fetch(new URL('texts.json', base)).then(r => r.json())); } catch {}
+    try { const s = await fetch(new URL('splash.json', base)).then(r => r.json()); if (s?.bits?.length) SPLASH = s; } catch {}
+    document.getElementById('data').textContent = 'Data: out/balloon (extracted)';
+  } catch {
+    document.getElementById('data').textContent = 'No extracted data found: run scripts/extract/extract_balloon.py first (this game has no placeholder art).';
+  }
+  render();
+})();
+</script>
+</body>
+</html>

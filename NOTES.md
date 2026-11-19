@@ -376,12 +376,14 @@ See `docs/wacko_logic.c`.
 - **Timing by level (1/2/3):**
   - tick period 52/26/13 timer units
   - duration 45000/65000/110000 at −200 per tick, i.e. 225/325/550 ticks
-  - The unit is **likely** the GSM frame (4.615 ms), which gives about 54 / 39 / 33 s.
+  - The unit is the GSM frame, **confirmed**: `FUN_cac340` converts ms to units with
+    `ms × 1300 / 6 / 1000`, so 1 unit = 4.615 ms. That gives 240/120/60 ms per tick and
+    about 54 / 39 / 33 s per game.
 - **Sound toggle:** a long press of `*` (confirmed by instruction text 0x9F8) toggles key
   sound. The tick is paused while its 1.5 s message is shown.
 - **Saved values:** best score and best rate, kept separately, plus the level.
-- **Quirk:** `random(n)` returns 0..n inclusive (**likely**, from how rows and columns are
-  picked).
+- **Quirk:** `random(n)` returns 0..n inclusive (**confirmed**: `FUN_c1bf24` returns
+  `(random byte × (n+1)) >> 8`). Balloon Shooter's own random returns 0..n−1.
 
 ## Assets and port
 - `scripts/extract/extract_wacko.py` writes `out/wacko/sprites.json` (state → sprite mapping
@@ -391,3 +393,52 @@ See `docs/wacko_logic.c`.
     bests, level cycling, the board layout and tick rate.
   - Level cycling 1→2→3 on select is **likely** (the item shows "Level N"; the cycle itself
     wasn't traced).
+
+# Balloon Shooter (game id 1)
+
+## Location (confirmed)
+| Address | Role |
+|---|---|
+| 0xCA8E38 | Games-menu entry. Start screen descriptor 0xCA8DC0 (splash picture **0xCA**); callbacks 0xCA8E0A (keys: 0x2C start, 0x2D/0x21 Options) and 0xCA8DEC (create/close) |
+| 0xCACCA6 | start the game screen (descriptor 0xCAB3AE → method table 0xCAB396) |
+| 0xCAC3C0 / 0xCAC508 / 0xCAC9BA / 0xCACB04 | create / keys / tick / close |
+| 0xCAB6AC | spawn |
+| 0xCABC0E | cleanup (escapes, finished pops) |
+| 0xCABA8C | move and animate |
+| 0xCAC016 | shoot; per-kind switch at 0xCA7FDE |
+| 0xCABD42 | level-up and status display |
+| 0xCACBC6 | game over |
+| 0xCAB3B6 | pending-sound priorities |
+| 0xCA2xxx–0xCA5xxx | shared game graphics library (sprites with masks, digits, boxes) |
+| 0xCA922A → descriptor 0xCA8F1E | Options: Start, Level (start level, number entry; **likely**), Highscore, Instructions (0x6E7) |
+
+## Rules
+See `docs/balloon_logic.c`.
+- **Tick:** 50 ms.
+- **Objects:** 12-byte records copied from templates. Balloons come in 4 designs × 3 sizes.
+  Small ones are worth 30, medium 20 and large 10, and the large ones rise fastest.
+- **Attachments:** about 1 balloon in 8 carries dynamite or a greeting card instead of a
+  plain string.
+  - Shooting dynamite gives +40 and pops everything.
+  - Shooting a card gives +40 and a life (maximum 5).
+  - Shooting a balloon removes what hangs under it.
+- **Score changes:** a shot that hits no balloon costs 10. Each escaped balloon costs a life.
+- **Levels:** 14 in the table at 0xCA926E: score thresholds 0…9100, 2–7 balloons, and a
+  minimum speed divisor of 30/20/10. Thresholds count from the start level chosen in Options.
+- **Quirk:** reaching level 14 (when starting from level 1) ends the game on the next tick,
+  because the entry after the table has threshold 2.
+- **Controls:**
+  - 1–9 (except 5) aim, at double speed on a long press.
+  - 5 shoots.
+  - 0 pauses: the status bar (lives, score) slides down and an hourglass shows. The status
+    bar is only visible while paused.
+
+## Assets (confirmed formats)
+- **Object frames:** `{u8 w, u8 h, u16 off, u16 page}` → bitmap then mask (mask 1 = transparent).
+- **`FUN_ca262a` descriptors** (pause icon, HUD digits) store **height first**. The digits are
+  5×7 and stored inverted.
+- **Extraction:** `scripts/extract/extract_balloon.py` → `out/balloon/data.json`,
+  `splash.json`, `texts.json`.
+- **Port:** `port/balloon.html` loads them; with no data it has nothing to play.
+  - Tested: start, aim, scoring for each kind, dynamite, card, popping and respawn, escapes,
+    level-up, the end at level 15, pause with the status bar.
