@@ -11,7 +11,7 @@ The four built-in games of the Siemens A55 phone, reverse-engineered from its fi
 A **Games menu** works like the phone's own: one page per game with its original start picture,
 plus a Setup page.
 
-**Play it in the browser: <https://ilariodeangelis77.github.io/MoveTheBoxDecomp/>**
+**Play it in the browser: <https://ilariodeangelis77.github.io/a55-games-rebuilt/>**
 
 > Personal preservation project. **The firmware itself is not in this repository.** The pages
 > contain the rebuilt game logic. The game data they load (levels, sprites, start pictures and
