@@ -513,8 +513,13 @@ open `http://localhost:8765/port/…`.
   (0xCB5074), Wacko (0xD53C96), Setup (0xCA8AF0, game id 0).
 - **Output:** `out/games/menu.json` (header, titles, entry points, which port each one opens).
 - **Port:** `port/games.html`.
-  - Shows the "Games" list. Picking a game opens its port on the original start screen with the
-    splash picture (`?from=games`; Move the box opens directly on its "orig" screen).
-  - End on that start screen goes back to the list, and the cursor stays on the last game.
+  - Every entry is a page laid out like the games' start screens: the 101-wide picture at
+    x 0, y 0, then the bottom strip with ◀ ▶ arrows and one dot per entry (the strip is my own
+    addition). Soft key: left = "Select". 4/6, 2/8 or arrows browse.
+  - Game pages show that game's own splash (`out/<game>/splash.json`). Selecting opens the port
+    on its original start screen (`?from=games`; Move the box opens directly on its "orig" screen).
+  - End on that start screen goes back to the menu, on the same page.
+  - **Setup splash: my own art**, not from the firmware. It is 101×49, 1 bit, drawn by
+    `games.html` itself: "SETUP" lettering, a speaker and two gears.
   - **Approximation:** Setup's real contents weren't traced. The port's Setup has a single
     Sound on/off item that switches the sound setting of all four ports at once.

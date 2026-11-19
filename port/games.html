@@ -21,15 +21,18 @@
   .phone { background: linear-gradient(var(--body-hi), var(--body)); border-radius: 28px; padding: 22px 18px 18px;
            box-shadow: 0 10px 30px rgba(0,0,0,.25); width: min(100%, 560px); }
   .lcd { background: var(--lcd); border-radius: 6px; padding: 10px; box-shadow: inset 0 0 0 3px #9aa684; }
-  .screen { position: relative; aspect-ratio: 101 / 64; overflow: hidden; }
-  canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .list { position: absolute; inset: 0; display: flex; flex-direction: column; color: var(--lcd-ink);
-          font: 600 clamp(12px, 3.4vw, 17px)/1.35 ui-monospace, Consolas, monospace; }
-  .hdr { background: var(--lcd-ink); color: var(--lcd); font-size: clamp(10px, 2.8vw, 14px); padding: 1px 6px; text-align: center; }
-  .items { list-style: none; margin: 0; padding: 2px 4px; overflow-y: auto; flex: 1; }
-  .items li { padding: 0 6px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-  .items li.sel { background: var(--lcd-ink); color: var(--lcd); }
-  .items li .n { opacity: .7; margin-right: .5ch; }
+  .screen { position: relative; }
+  canvas { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; aspect-ratio: 101 / 64; }
+  .overlay { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: safe center; overflow-y: auto;
+             align-items: center; text-align: center; color: var(--lcd-ink); background: var(--lcd);
+             font: 600 clamp(12px, 3.4vw, 17px)/1.35 ui-monospace, Consolas, monospace; white-space: pre-line; padding: 6px; }
+  .overlay.on { display: flex; }
+  .hdr { position: sticky; top: 0; align-self: stretch; margin-bottom: auto; background: var(--lcd-ink); color: var(--lcd);
+         font-size: clamp(10px, 2.8vw, 14px); padding: 1px 6px; text-align: center; z-index: 1; }
+  .body { width: 100%; margin-bottom: auto; padding: 4px 0; }
+  .menu { list-style: none; padding: 0; margin: 0; width: 80%; }
+  .menu li { padding: 1px 6px; border-radius: 3px; cursor: pointer; }
+  .menu li.sel { background: var(--lcd-ink); color: var(--lcd); }
   .soft { display: flex; justify-content: space-between; color: var(--lcd-ink); font: 600 12px ui-monospace, monospace; padding: 4px 2px 0; min-height: 1.4em; }
   .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
   .keys .row2 { grid-column: span 3; display: flex; justify-content: space-between; gap: 8px; }
@@ -38,20 +41,22 @@
   button:active { filter: brightness(1.3); }
   button.softk { flex: 1; font-size: 12px; }
   button.red { background: #8f3b36; } button.green { background: #3d7a46; }
-  .data { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: center; }
+  .status, .data { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: center; }
+  .status { font-size: 14px; font-weight: 600; color: var(--ink); }
   kbd { font: 11px ui-monospace, monospace; background: rgba(127,127,127,.2); padding: 0 4px; border-radius: 3px; }
 </style>
 </head>
 <body>
 <h1>Games Menu Port</h1>
-<p class="sub">The phone's Games menu, rebuilt from its firmware table. Choose a game to open its start screen with the original splash picture;
-<kbd>End</kbd> there brings you back here. <kbd>2</kbd>/<kbd>8</kbd> or arrows move, <kbd>OK</kbd>/<kbd>5</kbd>/<kbd>Enter</kbd> select.</p>
+<p class="sub">The phone's Games menu, rebuilt from its firmware table. Every entry is shown as a start screen with its
+splash picture; Setup has a custom one. <kbd>4</kbd>/<kbd>6</kbd>, <kbd>2</kbd>/<kbd>8</kbd> or arrows browse,
+<kbd>F1</kbd>/<kbd>Enter</kbd>/<kbd>5</kbd> select. <kbd>End</kbd> on a game's start screen comes back here.</p>
 
 <div class="phone">
   <div class="lcd">
     <div class="screen">
-      <canvas id="lcd" width="101" height="64" aria-label="splash preview"></canvas>
-      <div class="list" id="list"></div>
+      <canvas id="lcd" width="101" height="64" aria-label="games menu screen"></canvas>
+      <div class="overlay" id="overlay"></div>
     </div>
     <div class="soft"><span id="softL"></span><span id="softR"></span></div>
   </div>
@@ -62,52 +67,110 @@
       <button class="softk" data-k="RSK">Right soft ◥</button>
     </div>
     <button data-k="1">1</button><button data-k="2">2 ▲</button><button data-k="3">3</button>
-    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="4">4 ◀</button><button data-k="5">5</button><button data-k="6">6 ▶</button>
     <button data-k="7">7</button><button data-k="8">8 ▼</button><button data-k="9">9</button>
     <button data-k="*">*</button><button data-k="0">0</button><button class="red" data-k="RED">End</button>
   </div>
 </div>
+<div class="status" id="status"></div>
 <div class="data" id="data"></div>
 
 <script>
 'use strict';
 /* Menu structure from the firmware (NOTES.md, "Games menu"): header text 0x19F, five 18-byte
    item records at 0xD1A164 in this order, handlers at 0xD1A1BE. Texts and order come from
-   out/games/menu.json (scripts/extract/extract_games_menu.py); the fallback below is my own wording. */
+   out/games/menu.json (scripts/extract/extract_games_menu.py); the fallback below is my own wording.
+   Each game page shows that game's own start-screen picture (out/<game>/splash.json) in the same
+   place as its start screen (x 0, y 0, 101 wide). The Setup picture is not from the firmware: it is
+   drawn below by this page. */
 let MENU = { header: 'Games', select: 'Select', back: 'Back', sound: 'Sound',
   items: [{title: 'Crate Stack', port: 'stack.html'}, {title: 'Balloons', port: 'balloon.html'},
           {title: 'Box Pusher', port: 'index.html'}, {title: 'Whack', port: 'wacko.html'}, {title: 'Setup', port: null}] };
+const SPLASH_DIR = {'stack.html': 'stack', 'balloon.html': 'balloon', 'index.html': 'mtb', 'wacko.html': 'wacko'};
+const SPLASH = {};                                          // port -> {w, h, bits}
 const SOUND_KEYS = ['stackport.sound', 'balloonport.sound', 'boxport.sound', 'whackport.sound'];
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 const S = { screen: 'menu', sel: ls.get('gamesmenu.sel', 0), setupSel: 0 };
-const list = document.getElementById('list');
+const cv = document.getElementById('lcd'), cx = cv.getContext('2d'), overlay = document.getElementById('overlay');
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 function soundOn() { return SOUND_KEYS.every(k => ls.get(k, true)); }
+function lcdColors() { const s = getComputedStyle(document.documentElement);
+  return {bg: s.getPropertyValue('--lcd').trim(), ink: s.getPropertyValue('--lcd-ink').trim()}; }
+function blit(sp, x0, y0) { sp.bits.forEach((row, y) => row.forEach((v, x) => { if (v) cx.fillRect(x0 + x, y0 + y, 1, 1); })); }
+function setSoft(l, r) { document.getElementById('softL').textContent = l; document.getElementById('softR').textContent = r; }
+
+/* ---- custom Setup splash (my own art, 101x49, 1 bit): big "SETUP" lettering, a speaker for the
+   sound setting and two meshing gears, in the style of the Balloon Shooter title picture ---- */
+const SETUP_SPLASH = (() => {
+  const W = 101, H = 49, bits = Array.from({length: H}, () => Array(W).fill(0));
+  const put = (x, y, v = 1) => { if (x >= 0 && y >= 0 && x < W && y < H) bits[y][x] = v; };
+  const GLYPH = {
+    S: ['.#####.', '##...##', '##.....', '##.....', '.#####.', '.....##', '.....##', '##...##', '.#####.'],
+    E: ['#######', '##.....', '##.....', '##.....', '######.', '##.....', '##.....', '##.....', '#######'],
+    T: ['#######', '..###..', '..###..', '..###..', '..###..', '..###..', '..###..', '..###..', '..###..'],
+    U: ['##...##', '##...##', '##...##', '##...##', '##...##', '##...##', '##...##', '##...##', '.#####.'],
+    P: ['######.', '##...##', '##...##', '##...##', '######.', '##.....', '##.....', '##.....', '##.....'],
+  };
+  [...'SETUP'].forEach((ch, i) => GLYPH[ch].forEach((row, y) => [...row].forEach((c, x) => {
+    if (c === '#') for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) put(3 + i * 16 + 2 * x + dx, 1 + 2 * y + dy);
+  })));
+  const gear = (gx, gy, body, tip, teeth, hole, phase, ring) => {
+    for (let y = gy - tip - 1; y <= gy + tip + 1; y++) for (let x = gx - tip - 1; x <= gx + tip + 1; x++) {
+      const dx = x - gx, dy = y - gy, r = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+      const outer = Math.cos(teeth * a + phase) > 0.25 ? tip : body;
+      if (r <= outer + 0.3 && r > hole) put(x, y);
+      if (ring && r > hole + 2 && r <= hole + 3.2) put(x, y, 0);  // light ring around the hub
+    }
+  };
+  gear(81, 33, 11, 15, 8, 3.2, 0, true);
+  gear(61, 42, 6, 9, 6, 2.2, Math.PI / 6, false);
+  for (let y = 31; y <= 38; y++) for (let x = 5; x <= 10; x++) put(x, y);           // speaker box
+  for (let x = 11; x <= 19; x++) {                                                   // speaker cone
+    const h = 4 + Math.round((x - 11) * 6 / 8);
+    for (let y = 34 - h; y <= 35 + h; y++) put(x, y);
+  }
+  for (const rad of [5, 9, 13]) for (let y = 20; y < H; y++) for (let x = 20; x < 40; x++) {   // sound waves
+    const dx = x - 20, dy = y - 34.5, r = Math.hypot(dx, dy);
+    if (Math.abs(r - rad) < 1.0 && Math.abs(Math.atan2(dy, dx)) < 0.85) put(x, y);
+  }
+  return {w: W, h: H, bits};
+})();
+
+/* bottom strip (y 50..63, below the 101x49 picture, as on the start screens): arrows + page dots */
+function drawStrip(i, n) {
+  const y = 56;
+  for (let k = 0; k < 4; k++) { cx.fillRect(2 + k, y - k, 1, 2 * k + 1); cx.fillRect(98 - k, y - k, 1, 2 * k + 1); }
+  const x0 = Math.round(50.5 - (n * 7 - 3) / 2);
+  for (let j = 0; j < n; j++) {
+    const x = x0 + j * 7;
+    if (j === i) cx.fillRect(x, y - 2, 4, 5);
+    else { cx.fillRect(x, y - 2, 4, 1); cx.fillRect(x, y + 2, 4, 1); cx.fillRect(x, y - 2, 1, 5); cx.fillRect(x + 3, y - 2, 1, 5); }
+  }
+}
 
 function render() {
-  const cv = document.getElementById('lcd'), cx = cv.getContext('2d');
-  cx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--lcd').trim(); cx.fillRect(0, 0, 101, 64);
-  let html;
+  const {bg, ink} = lcdColors();
+  cx.fillStyle = bg; cx.fillRect(0, 0, 101, 64); cx.fillStyle = ink;
+  overlay.classList.remove('on'); overlay.innerHTML = '';
+  const it = MENU.items[S.sel];
   if (S.screen === 'menu') {
-    html = `<div class="hdr">${esc(MENU.header)}</div><ul class="items">` +
-      MENU.items.map((it, i) => `<li data-i="${i}" class="${i === S.sel ? 'sel' : ''}"><span class="n">${i + 1}</span>${esc(it.title)}</li>`).join('') + '</ul>';
-    setSoft('', MENU.select);
-  } else {                                                  // Setup (contents approximated, see NOTES.md)
-    const rows = [`${esc(MENU.sound)}: ${soundOn() ? 'on' : 'off'}`];
-    html = `<div class="hdr">${esc(MENU.items[4]?.title || 'Setup')}</div><ul class="items">` +
-      rows.map((t, i) => `<li data-i="${i}" class="${i === S.setupSel ? 'sel' : ''}">${t}</li>`).join('') + '</ul>';
-    setSoft(MENU.select, MENU.back);
+    const pic = it.port ? SPLASH[it.port] : SETUP_SPLASH;
+    if (pic) { blit(pic, 0, 0); drawStrip(S.sel, MENU.items.length); }
+    else { overlay.innerHTML = `<div class="hdr">${esc(MENU.header)}</div><div class="body">${esc(it.title)}</div>`; overlay.classList.add('on'); }
+    setSoft(MENU.select, '');
+    document.getElementById('status').textContent = `${MENU.header} · ${S.sel + 1}/${MENU.items.length} · ${it.title}`;
+  } else {                                                  // Setup list (contents approximated, see NOTES.md)
+    const rows = [`${MENU.sound}: ${soundOn() ? 'on' : 'off'}`];
+    overlay.innerHTML = `<div class="hdr">${esc(it.title)}</div><ul class="menu body">` +
+      rows.map((t, i) => `<li data-i="${i}" class="${i === S.setupSel ? 'sel' : ''}">${esc(t)}</li>`).join('') + '</ul>';
+    overlay.classList.add('on'); setSoft(MENU.select, MENU.back);
+    overlay.querySelectorAll('li[data-i]').forEach(li => li.addEventListener('click', () => { S.setupSel = +li.dataset.i; press('OK'); }));
+    document.getElementById('status').textContent = `${it.title} · sound ${soundOn() ? 'on' : 'off'} (all four games)`;
   }
-  list.innerHTML = html;
-  list.querySelector('li.sel')?.scrollIntoView({block: 'nearest'});
-  list.querySelectorAll('li[data-i]').forEach(li => li.addEventListener('click', () => {
-    if (S.screen === 'menu') { S.sel = +li.dataset.i; open(); } else { S.setupSel = +li.dataset.i; press('OK'); }
-  }));
 }
-function setSoft(l, r) { document.getElementById('softL').textContent = l; document.getElementById('softR').textContent = r; }
 function open() {
   ls.set('gamesmenu.sel', S.sel);
   const it = MENU.items[S.sel];
@@ -117,9 +180,10 @@ function open() {
 function press(k) {
   if (S.screen === 'menu') {
     const n = MENU.items.length;
-    if (k === '2') S.sel = (S.sel + n - 1) % n;
-    else if (k === '8') S.sel = (S.sel + 1) % n;
-    else if (k === 'OK' || k === 'RSK' || k === '5') { open(); return; }
+    if (k === '4' || k === '2') S.sel = (S.sel + n - 1) % n;
+    else if (k === '6' || k === '8') S.sel = (S.sel + 1) % n;
+    else if (k === 'LSK' || k === 'OK' || k === '5') { open(); return; }
+    ls.set('gamesmenu.sel', S.sel);
     render(); return;
   }
   if (k === 'OK' || k === 'LSK' || k === '5') { const v = !soundOn(); SOUND_KEYS.forEach(key => ls.set(key, v)); }
@@ -127,18 +191,30 @@ function press(k) {
   render();
 }
 document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => press(b.dataset.k)));
-const KEYMAP = {ArrowUp: '2', ArrowDown: '8', Enter: 'OK', NumpadEnter: 'OK', Escape: 'RED', F1: 'LSK', F2: 'RSK'};
+cv.addEventListener('click', () => { if (S.screen === 'menu') open(); });
+const KEYMAP = {ArrowUp: '2', ArrowDown: '8', ArrowLeft: '4', ArrowRight: '6', Enter: 'OK', NumpadEnter: 'OK',
+                Escape: 'RED', F1: 'LSK', F2: 'RSK'};
 addEventListener('keydown', e => {
   let k = KEYMAP[e.code];
   if (!k && /^(Digit|Numpad)[0-9]$/.test(e.code)) k = e.code.slice(-1);
   if (k) { e.preventDefault(); press(k); }
 });
 (async () => {
+  const data = document.getElementById('data');
   try {
     const m = await fetch(new URL('../out/games/menu.json', location.href)).then(r => r.json());
-    if (m?.items?.length) { MENU = Object.assign({}, MENU, m); document.getElementById('data').textContent = 'Menu: out/games/menu.json (extracted)'; }
-  } catch { document.getElementById('data').textContent = 'Menu: built-in fallback (run scripts/extract/extract_games_menu.py)'; }
-  S.sel = Math.min(S.sel, MENU.items.length - 1);
+    if (m?.items?.length) { MENU = Object.assign({}, MENU, m); data.textContent = 'Menu: out/games/menu.json (extracted)'; }
+  } catch { data.textContent = 'Menu: built-in fallback (run scripts/extract/extract_games_menu.py)'; }
+  S.sel = Math.min(Math.max(0, S.sel), MENU.items.length - 1);
+  render();
+  let found = 0;
+  await Promise.all(MENU.items.filter(it => it.port).map(async it => {
+    try {
+      const s = await fetch(new URL(`../out/${SPLASH_DIR[it.port]}/splash.json`, location.href)).then(r => r.json());
+      if (s?.bits?.length) { SPLASH[it.port] = s; found++; }
+    } catch {}
+  }));
+  data.textContent += ` · splash pictures: ${found}/4 from out/*/splash.json` + (found < 4 ? ' (run the extractors for the rest)' : '');
   render();
 })();
 </script>
