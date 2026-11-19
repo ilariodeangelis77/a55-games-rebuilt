@@ -79,6 +79,26 @@ def validate(lv):
     return dict(boxes=boxes, goals=goals, players=players,
                 ok=boxes == goals == lv['boxes'] and len(players) == 1)
 
+# Text IDs used by the game's own screens (see NOTES.md, "Original start menu")
+TEXT_IDS = {
+    'title': 0x347, 'start': 0x1B2, 'options': 0x215,
+    'menu': [0x1B1, 0x3DA, 0x33E, 0x480, 0x9F9],     # Start, Level, Highscore, Instructions, Rotate map
+    'instructions': [0x3E4, 0xA98, 0xA99, 0xA9A],    # pages; the game separates them with text 0xE74 (" ")
+    'best_score': 0x3E3, 'won': 0x3D8, 'lost': 0x3E2, 'ok': 0x15B, 'back': 0x2F9,
+}
+
+def texts(d, lang=0):
+    """Decode the game's UI strings from the firmware text pack (language 0 of LG7 = English)."""
+    import re
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from textpack import TextPack
+    tp = TextPack(d)
+    def one(tid):
+        s = tp.text(tid, lang).decode('latin-1')
+        s = re.sub(r'\xa4[\x00-\x1f]+', '%d', s)      # 0xA4 + width codes = number placeholder
+        return s.replace('\x95', '').replace('\x8a', '\n').strip()
+    return {k: ([one(t) for t in v] if isinstance(v, list) else one(v)) for k, v in TEXT_IDS.items()}
+
 if __name__ == '__main__':
     d = open(sys.argv[1], 'rb').read()
     out = sys.argv[2]; os.makedirs(out, exist_ok=True)
@@ -108,3 +128,6 @@ if __name__ == '__main__':
     except ImportError:
         print('Pillow missing: PNGs skipped')
     for p in pics: print('pic %2d at 0x%06x %dx%d' % (p['index'], p['addr'], p['w'], p['h']))
+    with open(os.path.join(out, 'texts.json'), 'w', encoding='utf-8') as f:
+        json.dump(texts(d), f, ensure_ascii=False, indent=1)
+    print('texts.json written')

@@ -289,3 +289,37 @@ Tested in the browser:
   - `Esc` cancels a pending rebind.
   - `Restore defaults` resets all bindings.
   - The on-screen phone keys are unaffected.
+
+## Original start menu (confirmed unless marked)
+Reached from Games → Move the box (`FUN_cb5074` → `FUN_cb503a`).
+- **Start screen:** UI descriptor 0xCAFFC6, key callback `FUN_cb4fa4`, create/close
+  callback `FUN_cb4fd0`.
+  - Soft-key table at 0xCAFFAE: `{5, 5, "Start" 0x1B2}`, `{0x2D, 0x2D, "Options" 0x215}`.
+  - Event 5 → `FUN_cb4ba0` (start the game); event 0x2D → `FUN_cb1888` (Options).
+  - Left = Start, right = Options is **likely** (table order).
+  - What the screen body shows is **unknown**. The port shows the title.
+- **Options list:** descriptor around 0xCB1E7E, five 18-byte item records:
+  1. **Start**: text 0x1B1, starts the game.
+  2. **Level**: text 0x3DA. A 2-digit number field.
+     - `FUN_cb19e8` validates input as it's typed: `*`, `#` or `0` first → rejected; a digit
+       above the max or a 2-digit value > 14 → clamped to "14".
+     - `FUN_cb18c8` on OK: converts the text to an index (clamped to 13) and saves it as the
+       current level (`FUN_d1a7a2`).
+     - **So the original did have level selection.**
+  3. **Highscore**: text 0x33E. `FUN_cb16ee` shows text 0x3E3 "Best score: %d" with
+     `FUN_d1a77e()`.
+  4. **Instructions**: text 0x480. `FUN_cb16ce` shows the text list at 0xCAFF9E:
+     0x3E4, 0xE74 (" "), 0xA98, 0xE74, 0xA99, 0xE74, 0xA9A, 0x7FFF (end).
+  5. **Rotate map**: text 0x9F9, a checkbox item. `FUN_cb1808` toggles the setting
+     (`FUN_d1a7ae(!FUN_d1a7ba())`); `FUN_cb184e` draws the checkbox state.
+- **Settings storage:** `FUN_ca8b9a(gameId, …)` loads a shared 2-byte field at offset 0x42
+  plus a per-game 10-byte slot at `(gameId−1)×10` of a 90-byte record; Move the box = game 9
+  → bytes 80–89. This matches EEPROM block **5062 "GamesData"** (90 bytes) → **likely** where
+  level, highscore and options are saved.
+- `extract_mtb.py` now also writes `out/mtb/texts.json` with these strings, decoded from the
+  text pack (`0xA4 + width bytes` = number placeholder → `%d`).
+
+**Port:** "Original menu" in the port's menu opens this start screen, the Options list,
+number-entry Level (same input rules), Highscore, Instructions (2/8 scroll) and the Rotate
+map checkbox. Exiting a game started from it returns to the start screen. Text comes from
+`texts.json`; without it the port uses its own wording.
