@@ -1,0 +1,104 @@
+/* Shared look of every port page: site header + nav, the phone, the side panel and the in-LCD
+   screens (start/options/text overlays). Page-specific rules stay in each page's own <style>. */
+
+:root {
+  --bg: #ebeae4; --surface: #f8f7f3; --line: #d9d7cf; --ink: #1d1d1b; --muted: #67665f;
+  --lcd: #c9d3b4; --lcd-ink: #1f2a17; --lcd-edge: #9aa684;
+  --body: #2b2d31; --body-hi: #3b3e44; --bezel: #16171a;
+  --key: #4a4e55; --key-hi: #5a5f67; --key-ink: #f1f1ee; --key-red: #8f3b36; --key-green: #3d7a46;
+  --radius: 12px;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #141517; --surface: #1c1d20; --line: #2c2e32; --ink: #e8e6e1; --muted: #9a988f; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #141517; --surface: #1c1d20; --line: #2c2e32; --ink: #e8e6e1; --muted: #9a988f; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--ink);
+       font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+code, kbd { font-family: var(--mono); }
+code { font-size: 12px; background: rgba(127,127,127,.14); padding: 0 4px; border-radius: 4px; overflow-wrap: anywhere; }
+kbd { display: inline-block; min-width: 1.6em; text-align: center; font-size: 11px; line-height: 1.6; padding: 0 5px;
+      border-radius: 4px; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 2px; color: var(--ink); }
+a { color: inherit; }
+
+/* ---- site header ------------------------------------------------------------------------- */
+.site { border-bottom: 1px solid var(--line); background: var(--surface); }
+.site-in { max-width: 1040px; margin: 0 auto; padding: 10px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.brand-mark { width: 34px; height: 24px; border-radius: 4px; background: var(--lcd); box-shadow: inset 0 0 0 2px var(--lcd-edge), 0 0 0 2px var(--bezel);
+              display: grid; place-items: center; color: var(--lcd-ink); font: 700 10px/1 var(--mono); letter-spacing: .5px; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-text b { font-size: 14px; }
+.brand-text span { font-size: 11px; color: var(--muted); }
+.nav { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.nav a { text-decoration: none; font: 600 12.5px/1 var(--mono); padding: 7px 10px; border-radius: 6px; color: var(--muted); }
+.nav a:hover { color: var(--ink); background: rgba(127,127,127,.12); }
+.nav a[aria-current="page"] { background: var(--lcd-ink); color: var(--lcd); }
+
+/* ---- layout ------------------------------------------------------------------------------ */
+.layout { flex: 1; width: 100%; max-width: 1040px; margin: 0 auto; padding: 24px 16px 32px;
+          display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); justify-items: center; padding-top: 16px; } .panel { max-width: 560px; } }
+.device { width: 100%; max-width: 460px; display: flex; flex-direction: column; align-items: stretch; }
+.panel { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+
+/* ---- the phone --------------------------------------------------------------------------- */
+.phone { position: relative; background: linear-gradient(170deg, var(--body-hi), var(--body) 60%); border-radius: 30px 30px 36px 36px;
+         padding: 16px 18px 20px; box-shadow: 0 14px 34px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08); width: 100%; }
+.earpiece { width: 64px; height: 6px; margin: 0 auto 12px; border-radius: 3px; background: var(--bezel); box-shadow: inset 0 1px 2px rgba(0,0,0,.6); }
+.lcd { position: relative; background: var(--lcd); border-radius: 6px; padding: 10px;
+       box-shadow: inset 0 0 0 3px var(--lcd-edge), 0 0 0 6px var(--bezel), 0 0 0 7px rgba(255,255,255,.06); }
+.screen { position: relative; }
+canvas { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; aspect-ratio: 101 / 64; }
+.soft { display: flex; justify-content: space-between; color: var(--lcd-ink); font: 600 12px var(--mono); padding: 4px 2px 0; min-height: 1.4em; }
+.keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 20px; }
+.keys .row2 { grid-column: span 3; display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.keys button { background: linear-gradient(var(--key-hi), var(--key)); color: var(--key-ink); border: 0; border-radius: 12px; padding: 10px 0;
+               font: 600 15px system-ui, sans-serif; cursor: pointer; touch-action: manipulation; user-select: none;
+               box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+.keys button:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,.35); filter: brightness(1.2); }
+.keys button:focus-visible { outline: 2px solid var(--lcd); outline-offset: 2px; }
+.keys button.softk { flex: 1; font-size: 12px; }
+.keys button.red { background: linear-gradient(#a2463f, var(--key-red)); }
+.keys button.green { background: linear-gradient(#478a51, var(--key-green)); }
+.status { margin-top: 12px; min-height: 1.5em; font: 600 12.5px/1.5 var(--mono); color: var(--muted); text-align: center; }
+
+/* ---- in-LCD screens (shared by all ports) ------------------------------------------------ */
+.overlay { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: safe center; overflow-y: auto;
+           align-items: center; text-align: center; color: var(--lcd-ink); background: var(--lcd); scrollbar-width: none;
+           font: 600 clamp(12px, 3.4vw, 17px)/1.35 var(--mono); white-space: pre-line; padding: 6px; }
+.overlay::-webkit-scrollbar { display: none; }
+.overlay.on { display: flex; }
+.hdr { position: sticky; top: 0; align-self: stretch; margin-bottom: auto; background: var(--lcd-ink); color: var(--lcd);
+       font-size: clamp(10px, 2.8vw, 14px); padding: 1px 6px; text-align: center; z-index: 1; }
+.body { width: 100%; margin-bottom: auto; padding: 4px 0; }
+.menu { list-style: none; padding: 0; margin: 0; width: 80%; }
+.menu li { padding: 1px 6px; border-radius: 3px; cursor: default; }
+.menu li.sel { background: var(--lcd-ink); color: var(--lcd); }
+.field { display: inline-block; min-width: 3ch; border-bottom: 2px solid var(--lcd-ink); margin-top: 6px; }
+
+/* ---- side panel -------------------------------------------------------------------------- */
+.panel h1 { margin: 2px 0 0; font: 700 22px/1.2 var(--mono); letter-spacing: -.2px; }
+.lede { margin: 0; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.card h2 { margin: 0 0 10px; font: 700 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+.controls { display: grid; grid-template-columns: max-content 1fr; gap: 7px 14px; margin: 0; align-items: baseline; }
+.controls dt { white-space: nowrap; }
+.controls dd { margin: 0; }
+.card p { margin: 0; }
+.card p + p { margin-top: 6px; }
+.data { color: var(--muted); font-size: 13px; }
+.data label { color: var(--ink); text-decoration: underline; cursor: pointer; }
+.settings { display: flex; flex-direction: column; gap: 8px; }
+.setting { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.setting input { accent-color: var(--lcd-ink); width: 16px; height: 16px; margin: 0; }
+.setting small { color: var(--muted); }
+.note { font-size: 12.5px; color: var(--muted); }
+
+/* ---- footer ------------------------------------------------------------------------------ */
+.site-foot { border-top: 1px solid var(--line); }
+.site-foot div { max-width: 1040px; margin: 0 auto; padding: 14px 16px 20px; font-size: 12px; color: var(--muted); }

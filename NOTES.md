@@ -15,18 +15,24 @@ indirect evidence), **guess** (hypothesis that hasn't been tested yet).
 | 4. Decompile logic | **done**: `docs/move_the_box_logic.c` (pseudo-C), section "Game logic" below |
 | 5. Reimplementation | **done**: `port/index.html` (engine; loads the extracted data at runtime) |
 
-Reproduce everything from the dump:
+Reproduce everything from the dump (same commands as in `README.md`):
 ```
-python -I scripts/extract/extract_mtb.py firmware/upstream_ff/A55_LG7_V9_00800000.FLS out/mtb
+FF=firmware/upstream_ff/A55_LG7_V9_00800000.FLS
+python -I scripts/extract/extract_mtb.py        $FF out/mtb
+python -I scripts/extract/extract_wacko.py      $FF out/wacko
+python -I scripts/extract/extract_balloon.py    $FF out/balloon
+python -I scripts/extract/extract_stack.py      $FF out/stack
+python -I scripts/extract/extract_games_menu.py $FF out/games
 python -I scripts/extract/render_levels.py out/mtb          # contact sheet of all levels
-python -m http.server 8765   # then open http://localhost:8765/port/index.html
+python -m http.server 8765   # then open http://localhost:8765/ (redirects to port/games.html)
 ```
 
 ## Target
 
 - Model / SW version: **A55, language group LG1, SW 11** (likely). Evidence: the filename of
   the EEPROM dump below, plus a UTF-16LE string `Siemens A55` inside it.
-- Fullflash: _still missing_. Expected at `firmware/<MODEL>_SW<ver>.bin` (gitignored, never committed).
+- Fullflash: _still missing_ at this point in the log. **Found later:** an A55 V9 LG7 fullflash,
+  `firmware/upstream_ff/A55_LG7_V9_00800000.FLS` (gitignored, never committed), used for everything below.
 
 ### `firmware/SIEMENS A55 LG1 V11 - 00FA0000.FLS`: EEPROM blocks only, no code
 - SHA-256 `5f0a4aa5c55fd87bfc9ec96aeab3a750634915891d5d177a84e4d75a68f629f0`, 175,388 bytes (0x2AD1C)
@@ -501,7 +507,16 @@ flat grid.
 | Games menu | `port/games.html` (start here) | `scripts/extract/extract_games_menu.py` |
 
 Run every extractor against the dump, then serve the repo (`python -m http.server 8765`) and
-open `http://localhost:8765/port/…`.
+open `http://localhost:8765/` (redirects to the Games menu).
+
+**Page shell (port addition):** all five pages share `port/shell.css` and `port/shell.js`.
+- **Header:** navigation in the phone's menu order, with names taken from `out/games/menu.json`.
+- **Phone:** the same phone on every page.
+- **Side panel:** Controls, Settings (LCD depth) and Data cards.
+- **Footer:** says that no firmware or original assets are included.
+- **End key:** End always leads back to the Games menu: game → start screen → Games menu. On
+  Move the box's port menu, End also goes there.
+- **Untouched:** each page's game script is the same as before; only the markup around it changed.
 
 # Games menu (launcher)
 - **Descriptor 0xD1A1F0** (confirmed by reading it, `scripts/extract/extract_games_menu.py`):

@@ -58,13 +58,15 @@
   }
 
   const box = document.createElement('label');
-  box.className = 'lcd-depth-toggle';
-  box.innerHTML = '<input type="checkbox"> LCD depth (pixel shadow)';
+  const settings = document.getElementById('settings');           // the side panel's Settings card
+  box.className = settings ? 'setting' : 'lcd-depth-toggle';
+  box.innerHTML = '<input type="checkbox"> LCD depth <small>soft shadow behind every pixel</small>';
   const cb = box.querySelector('input');
   // keep the checkbox from stealing the game keys (Enter/Space would toggle it)
   cb.addEventListener('keydown', e => e.preventDefault());
   cb.addEventListener('change', () => { set(cb.checked); cb.blur(); });
-  (document.querySelector('.phone') || src.parentElement).after(box);
+  if (settings) settings.prepend(box);
+  else (document.querySelector('.phone') || src.parentElement).after(box);
 
   function set(v) {
     on = !!v; save(on); cb.checked = on;
