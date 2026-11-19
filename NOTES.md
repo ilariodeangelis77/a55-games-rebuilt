@@ -442,3 +442,62 @@ See `docs/balloon_logic.c`.
 - **Port:** `port/balloon.html` loads them; with no data it has nothing to play.
   - Tested: start, aim, scoring for each kind, dynamite, card, popping and respawn, escapes,
     level-up, the end at level 15, pause with the status bar.
+
+# Stack Attack (game id 2)
+
+## Location (confirmed)
+| Address | Role |
+|---|---|
+| 0xCAF8F8 | Games-menu entry. Start screen descriptor 0xCAF880 (splash picture **0xCC**); keys 0xCAF8CA (0x2C start, 0x2D/0x21 Options), create/close 0xCAF8AC |
+| 0xCAF434 | start the game screen (descriptor 0xCAF496 → method table 0xCAF47E) |
+| 0xCAE73A / 0xCAE9B2 / 0xCAF298 / 0xCAF372 | create / keys / tick (125 ms) / close |
+| 0xCAEBAE | step. Action switch at 0xCA7FF4: 0 right, 1 jump right, 2 left, 3 jump left, 4 jump up |
+| 0xCADA5E / 0xCAD29E / 0xCAD1FC | walk and push / jump / jump-up check (breaks a falling crate overhead) |
+| 0xCAD68C / 0xCAD8B6 | player physics / crate physics (falling and crushing) |
+| 0xCACCF0 | bottom-row clear |
+| 0xCACDBE / 0xCAE618 | cranes / crate-on-head check |
+| 0xCAE052 | random starting board |
+| 0xCAE268 / 0xCAE1CE | draw scenery and cranes / draw a cell |
+| 0xCAF574 → descriptor 0xCAF51C | Options: Start, Level (starting crane count 1–3; **likely** number entry), Highscore, Instructions (0x6E8) |
+
+## Rules
+See `docs/stack_logic.c`. `port/stack.html` is a literal translation on the firmware's own
+flat grid.
+- **Board:** 12×6 cells of 8 px, with row 0 at the bottom.
+- **Player:** 2 cells tall. Walks and pushes single crates (4/6). Jumps up, or two columns
+  over and one row up (1/2/3).
+- **Cranes:** each drops a random crate in a random column, worth +2 per drop. The number of
+  cranes on screen equals the "level".
+- **Full bottom row:** it breaks away, scores active cranes × 10, and adds one more crane.
+- **Game over:** only by being crushed: a crate falls or is dropped onto the head (anything
+  else just piles up). Jumping into a crate that's still falling breaks it instead.
+- **Pause:** 0 pauses and shows the hourglass and the "%d points" box. The score is shown
+  nowhere else during play.
+
+## Assets (confirmed)
+- **Sprite resource block** at **0xCAF932**, read by the shared library (`FUN_ca45ac`,
+  `FUN_ca493e`, `FUN_ca4536`). It has an offset table at +0x26, and its id 1 is the animation
+  set. Each player state has an animation (state → frame-id list); frames are 8×16 plus a mask.
+- **Cells:** ids 0x1E–0x29 are 8×8 graphics for types 2–13.
+- **Cranes:** 0x2A and 0x2B are 16×16 plus a mask, claw closed and open.
+- **Scenery:** 0x2C ground 4×4, 0x2D rail 8×4, 0x2E wall 4×4, 0x2F sky band 24 px wide.
+- **Extraction:** `scripts/extract/extract_stack.py` → `out/stack/data.json`, `splash.json`,
+  `texts.json`.
+- **Port:** `port/stack.html`.
+  - Tested: starting board and spawn, walk, push, jump up and land, side jump onto a crate,
+    crane drop (+2) and falling (4 ticks per row), being crushed (game over and highscore),
+    row clear (+10 per crane and an extra crane), and the live rendering.
+  - **Unverified details:** which crane image means "carrying" (closed when carrying is my
+    reading), and the sky band's height (24 rows chosen from the data; the descriptor
+    holding it wasn't traced).
+
+# All four games: ports
+| Game | Port | Extractor |
+|---|---|---|
+| Move the Box | `port/index.html` | `scripts/extract/extract_mtb.py` |
+| Wacko | `port/wacko.html` | `scripts/extract/extract_wacko.py` |
+| Balloon Shooter | `port/balloon.html` | `scripts/extract/extract_balloon.py` |
+| Stack Attack | `port/stack.html` | `scripts/extract/extract_stack.py` |
+
+Run every extractor against the dump, then serve the repo (`python -m http.server 8765`) and
+open `http://localhost:8765/port/…`.
