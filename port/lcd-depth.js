@@ -14,7 +14,7 @@
   'use strict';
   const KEY = 'lcdport.depth';
   const OFFSET = 0.6;          // shadow offset in LCD pixels (down and right)
-  const ALPHA = 0.24;          // shadow strength for a fully dark pixel
+  const ALPHA = 0.38;          // shadow strength for a fully dark pixel
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) ?? true; } catch { return true; } };
   const save = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} };
 
@@ -23,11 +23,11 @@
   const css = document.createElement('style');
   css.textContent = `
     .lcd-shadow { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none;
-                  image-rendering: auto; filter: blur(0.6px); display: none;
+                  image-rendering: pixelated; image-rendering: crisp-edges; filter: blur(0.2px); display: none;
                   transform: translate(${OFFSET / 101 * 100}%, ${OFFSET / 64 * 100}%); }
     html.lcd-depth .lcd-shadow { display: block; }
-    html.lcd-depth .screen .overlay, html.lcd-depth .lcd .soft { text-shadow: 0.1em 0.13em 0.06em rgba(20, 28, 14, .24); }
-    html.lcd-depth .screen .overlay .hdr, html.lcd-depth .screen .overlay li.sel { box-shadow: 0.1em 0.13em 0.08em rgba(20, 28, 14, .22); }
+    html.lcd-depth .screen .overlay, html.lcd-depth .lcd .soft { text-shadow: 0.1em 0.13em 0.02em rgba(20, 28, 14, .38); }
+    html.lcd-depth .screen .overlay .hdr, html.lcd-depth .screen .overlay li.sel { box-shadow: 0.1em 0.13em 0.02em rgba(20, 28, 14, .36); }
     html.lcd-depth .screen .overlay .hdr, html.lcd-depth .screen .overlay li.sel { text-shadow: none; }
     .lcd-depth-toggle { margin-top: 10px; font-size: 12px; color: var(--muted, #777); display: flex; gap: 6px; align-items: center; cursor: pointer; user-select: none; }`;
   document.head.appendChild(css);

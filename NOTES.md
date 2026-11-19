@@ -528,7 +528,7 @@ open `http://localhost:8765/port/…`.
 - `port/lcd-depth.js`, included by all five pages, simulates the faint shadow a passive mono LCD
   shows under each dark pixel.
   - Every frame it copies the dark pixels of `canvas#lcd` into a transparent canvas laid over it,
-    shifted 0.6 LCD px down and right, with 24 % ink alpha and a slight blur.
+    shifted 0.6 LCD px down and right, with 38 % ink alpha and only a hint of blur.
   - The HTML text screens and soft-key labels get the same look through `text-shadow`.
   - The games' own rendering code is untouched.
 - **Toggle:** the "LCD depth" checkbox under each phone, or Games → Setup → "LCD depth". The
