@@ -95,6 +95,7 @@ let TXT = { title: 'Balloons', start: 'Start', options: 'Options', menu: ['Start
   instructions: ['Pop the balloons before\nthey reach the top.\nAim with 1-9,\nshoot with 5.\nDynamite pops all.\nCards give a life.'] };
 let D = null, SPLASH = null;
 
+const FROM_GAMES = new URLSearchParams(location.search).get('from') === 'games';
 const store = {
   get(k, d) { try { const v = localStorage.getItem('balloonport.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem('balloonport.' + k, JSON.stringify(v)); } catch {} },
@@ -341,6 +342,7 @@ function press(k, fast) {
   if (G.screen === 'start') {
     if (k === 'LSK' || k === 'OK') startGame();
     else if (k === 'RSK') { G.screen = 'options'; G.sel = 0; render(); }
+    else if (k === 'RED' && FROM_GAMES) location.href = 'games.html';     // back to the Games menu (port/games.html)
     return;
   }
   if (G.screen === 'options') {

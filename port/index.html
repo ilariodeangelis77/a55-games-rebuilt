@@ -125,6 +125,7 @@ function placeholderTiles() {
  * Persistent storage (the phone keeps level + highscore in EEPROM block "GamesData"; here we
  * use localStorage, guarded because it can be unavailable).
  * ------------------------------------------------------------------------------------------- */
+const FROM_GAMES = new URLSearchParams(location.search).get('from') === 'games';
 const store = {
   get(k, d) { try { const v = localStorage.getItem('boxport.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem('boxport.' + k, JSON.stringify(v)); } catch {} },
@@ -144,7 +145,7 @@ let TILES = null;         // tile index -> ImageData-like bitmaps
 const G = {               // mirrors the firmware state struct at page 0x54
   grid: null, backup: null, onGoal: 0, backupOnGoal: 0,
   steps: 0, won: 0, active: 0, started: 0, undoOk: 0, nboxes: 0,
-  level: 0, total: 0, high: 0, sound: true, rotate: false, screen: 'menu', menuSel: 0, result: null,
+  level: 0, total: 0, high: 0, sound: true, rotate: false, screen: FROM_GAMES ? 'orig' : 'menu', menuSel: 0, result: null,
   menuLevel: 0,             // port addition: level picked in the menu
   ctrlSel: 0, capture: null // port addition: Controls screen (selected row, action awaiting a key)
 };
@@ -366,7 +367,7 @@ function press(k) {
   if (G.screen === 'orig') {                              // soft keys: {5,"Start"} {0x2D,"Options"}
     if (k === 'LSK' || k === 'OK' || k === '5') { G.origin = 'orig'; newGame(); }
     else if (k === 'RSK') { G.screen = 'origOpts'; G.origSel = 0; render(); }
-    else if (k === 'RED') { G.screen = 'menu'; render(); }
+    else if (k === 'RED') { if (FROM_GAMES) location.href = 'games.html'; else { G.screen = 'menu'; render(); } }
     return;
   }
   if (G.screen === 'origOpts') {

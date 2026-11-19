@@ -95,6 +95,7 @@ let TXT = { title: 'Crates', start: 'Start', options: 'Options', menu: ['Start',
   points: '%d points', back: 'Back',
   instructions: ['Fill complete rows at\nthe bottom. 4/6 walk\nand push, 1/2/3 jump.\nJumping into a falling\ncrate breaks it.\n0 pauses and shows\nthe score.'] };
 let D = null, SPLASH = null;
+const FROM_GAMES = new URLSearchParams(location.search).get('from') === 'games';
 const store = {
   get(k, d) { try { const v = localStorage.getItem('stackport.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem('stackport.' + k, JSON.stringify(v)); } catch {} },
@@ -466,6 +467,7 @@ function press(k) {
   if (G.screen === 'start') {
     if (k === 'LSK' || k === 'OK') startGame();
     else if (k === 'RSK') { G.screen = 'options'; G.sel = 0; renderMenu(); }
+    else if (k === 'RED' && FROM_GAMES) location.href = 'games.html';     // back to the Games menu (port/games.html)
     return;
   }
   if (G.screen === 'options') {

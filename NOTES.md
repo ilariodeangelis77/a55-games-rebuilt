@@ -498,6 +498,23 @@ flat grid.
 | Wacko | `port/wacko.html` | `scripts/extract/extract_wacko.py` |
 | Balloon Shooter | `port/balloon.html` | `scripts/extract/extract_balloon.py` |
 | Stack Attack | `port/stack.html` | `scripts/extract/extract_stack.py` |
+| Games menu | `port/games.html` (start here) | `scripts/extract/extract_games_menu.py` |
 
 Run every extractor against the dump, then serve the repo (`python -m http.server 8765`) and
 open `http://localhost:8765/port/…`.
+
+# Games menu (launcher)
+- **Descriptor 0xD1A1F0** (confirmed by reading it, `scripts/extract/extract_games_menu.py`):
+  - +2 far ptr → item table 0xD1A164: five 18-byte records `{0, 0, title, title2, 0, 0, 0, 3, x}`.
+  - +6 far ptr → handler table 0xD1A1BE: far pointers to JMPS trampolines that land on the game
+    entry points.
+  - +10 item count (5), +12 text 0x127 "End of menu". Header text list at 0xD1A20C: 0x19F "Games".
+- **Order on the phone:** Stack Attack (0xCAF8F8), Balloon Shooter (0xCA8E38), Move the box
+  (0xCB5074), Wacko (0xD53C96), Setup (0xCA8AF0, game id 0).
+- **Output:** `out/games/menu.json` (header, titles, entry points, which port each one opens).
+- **Port:** `port/games.html`.
+  - Shows the "Games" list. Picking a game opens its port on the original start screen with the
+    splash picture (`?from=games`; Move the box opens directly on its "orig" screen).
+  - End on that start screen goes back to the list, and the cursor stays on the last game.
+  - **Approximation:** Setup's real contents weren't traced. The port's Setup has a single
+    Sound on/off item that switches the sound setting of all four ports at once.
