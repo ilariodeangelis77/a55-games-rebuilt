@@ -162,10 +162,24 @@ Still to confirm against the C166 code itself (far pointers / EXTS segments into
 |---|---|---|---|
 | Ghidra | 12.2 (`ghidra_12.2_PUBLIC_20261016`) | `tools/ghidra_12.2_PUBLIC/` | needs JDK 21+ |
 | C166 module | keyhana/c166-ghidra-module v1.2.4 | installed into Ghidra `Extensions/` | successor of esaulenka/Ghidra_C166 (whose README says it's outdated). Has DPP translation, EXTP/EXTS handling, Tasking (`__stdcall`, R12–R15 args) and Keil (R8–R12) calling conventions. Only C167CR/C167CS processor specs, so E-GOLD+ SFRs will need adding. |
-| JDK | Temurin 21.0.11 | system | |
+| JDK | Temurin 25.0.5+8 (`OpenJDK25U-jdk_x64_windows_hotspot_25.0.5_8.zip`) | `tools/jdk-25.0.5+8/` | the C166 module jar is built for Java 25; the system JDK 21 can't load it |
 | Python | 3.14, Pillow 12.2, numpy 2.4 | system | for extractors |
 
 Not installed: IDA Pro (not available here), radare2. Add r2 later only if a cross-check is needed.
+
+**Removed to free space (2026-11-21).** `tools/` (1.9 GB: Ghidra, the JDK and the download
+archives) was deleted after the project was finished. The extractors and the web pages don't
+need it; only the Ghidra scripts in `scripts/ghidra/` and `scripts/test/` do. To set it up again:
+1. Download `ghidra_12.2_PUBLIC_20261016.zip` (GitHub NationalSecurityAgency/ghidra releases).
+   Unzip it to `tools/ghidra_12.2_PUBLIC/`.
+2. Download Temurin JDK 25 (`OpenJDK25U-jdk_x64_windows_hotspot_25.0.5_8.zip`, adoptium.net).
+   Unzip it to `tools/jdk-25.0.5+8/`.
+3. In `tools/ghidra_12.2_PUBLIC/support/launch.properties`, set
+   `JAVA_HOME_OVERRIDE=<repo>/tools/jdk-25.0.5+8`.
+4. Download `c166-ghidra-module-v1.2.4.zip` (GitHub keyhana/c166-ghidra-module releases). Unzip it
+   into `tools/ghidra_12.2_PUBLIC/Ghidra/Extensions/c166-ghidra-module/`.
+5. Check the setup with `scripts/test/smoke_test.sh`. The analysed project in
+   `out/ghidra_projects/a55` is kept, so re-analysis isn't needed.
 
 ### Module caveats (from its README; still to confirm on the real dump)
 - DPP values are **not** inferred. Set DPP0–DPP3 with *Set Register Values* over the ranges
